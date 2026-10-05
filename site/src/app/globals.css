@@ -1,26 +1,116 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root[data-theme="dark"], .dark, :root {
+  --bg: #0D0C0A;
+  --surface: #151411;
+  --surface-2: #1D1B17;
+  --border: rgba(243,239,230,.10);
+  --border-strong: rgba(243,239,230,.22);
+  --text: #F3EFE6;
+  --muted: #9B968A;
+  --accent: #C9A96E;
+  --accent-fg: #14110B;
+  --accent-soft: rgba(201,169,110,.12);
+  --success: #7FB08A;
+  --warning: #D9B26A;
+  --danger: #C8574C;
+  --ease: cubic-bezier(.22,1,.36,1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.light, [data-theme="light"] {
+  --bg: #F6F3EC;
+  --surface: #FBFAF6;
+  --surface-2: #EFEBE1;
+  --border: rgba(20,18,14,.12);
+  --border-strong: rgba(20,18,14,.28);
+  --text: #14120E;
+  --muted: #6F6A5F;
+  --accent: #8A6A2F;
+  --accent-fg: #FBFAF6;
+  --accent-soft: rgba(138,106,47,.10);
+  --success: #3F7A52;
+  --warning: #A8782A;
+  --danger: #A93F35;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Tactile Grain Overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  z-index: 99;
+}
+
+/* Smooth Tabular Numerals */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hairline dividers */
+.hairline-b {
+  border-bottom: 1px solid var(--border);
+}
+.hairline-t {
+  border-top: 1px solid var(--border);
+}
+.hairline-r {
+  border-right: 1px solid var(--border);
+}
+.hairline-l {
+  border-left: 1px solid var(--border);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Guilloche pattern for Passport */
+.guilloche-bg {
+  background-image: radial-gradient(circle at 50% 50%, rgba(201,169,110,0.06) 1px, transparent 1px);
+  background-size: 16px 16px;
 }
