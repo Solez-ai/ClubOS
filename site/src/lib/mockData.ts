@@ -244,7 +244,7 @@ export const MOCK_PROFILES: Profile[] = [
   {
     id: '90000000-0000-0000-0000-000000000002',
     handle: 'tanvir_hossain',
-    full_name: 'Tanvir Hossain',
+    full_name: 'Shovro Hossain',
     email: 'participant@demo.clubos.dev',
     phone: '+880 1819 000002',
     institution: 'Dhaka Residential Model College',

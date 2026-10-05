@@ -179,25 +179,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ORGANIZER CTA */}
-      <section className="w-full py-20 bg-[var(--surface-2)]">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="flex flex-col gap-3 max-w-xl">
-            <Eyebrow>ORGANIZER PORTAL</Eyebrow>
-            <h2 className="font-serif text-3xl text-[var(--text)] font-normal">
-              Running a campus fest or club event?
-            </h2>
-            <p className="text-sm text-[var(--muted)]">
-              ClubOS provides organizer dashboards, custom registration field builders, real-time check-in scanners, live projector venue QRs, and CSV exports.
-            </p>
-          </div>
-          <Link href="/organizer">
-            <Button size="lg" variant="secondary" className="whitespace-nowrap">
-              Open Organizer Portal
-            </Button>
-          </Link>
-        </div>
-      </section>
+
 
       <Footer />
     </div>

@@ -7,10 +7,22 @@ import { Eyebrow } from '@/components/ui/Eyebrow';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { EventCard } from '@/components/cards/EventCard';
-import { MOCK_EVENTS } from '@/lib/mockData';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { Search, Filter, SlidersHorizontal } from 'lucide-react';
 
 export default function EventsPage() {
+  const [events, setEvents] = useState([]);
+  const supabase = createClient();
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const { data, error } = await supabase.from('events').select('*, fest:fest_id(*)');
+      if (error) console.error(error);
+      else setEvents(data);
+    };
+    fetchEvents();
+  }, []);
+
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -18,11 +30,24 @@ export default function EventsPage() {
   const categories = ['all', 'competition', 'workshop', 'seminar', 'robotics', 'gaming'];
 
   const filteredEvents = useMemo(() => {
-    return MOCK_EVENTS.filter((e) => {
+    return events.filter((e: any) => {
       const matchesSearch =
         e.title.toLowerCase().includes(search.toLowerCase()) ||
         e.description?.toLowerCase().includes(search.toLowerCase()) ||
-        e.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
+        e.tags?.some((t: string) => t.toLowerCase().includes(search.toLowerCase()));
+
+      const matchesCategory = selectedCategory === 'all' || e.category === selectedCategory;
+
+      let matchesStatus = true;
+      if (statusFilter === 'open') matchesStatus = e.is_open === true;
+      if (statusFilter === 'closing_soon') matchesStatus = e.closing_soon === true;
+      if (statusFilter === 'full') matchesStatus = e.is_full === true;
+
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [events, search, selectedCategory, statusFilter]);
+// Mock fallback removed – using real Supabase data
+
 
       const matchesCategory = selectedCategory === 'all' || e.category === selectedCategory;
 
