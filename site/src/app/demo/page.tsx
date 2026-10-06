@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -14,8 +16,14 @@ import { Card } from '@/components/ui/Card';
 export default function DemoPage() {
   const [orgs, setOrgs] = useState([]);
   const [events, setEvents] = useState([]);
-  const [profiles, setProfiles] = useState([]);
-  const supabase = createClient();
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const supabase = React.useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase credentials not configured');
+      return null;
+    }
+    return createClient();
+  }, []);
 
   useEffect(() => {
     // Load mock data directly – this is the same as the home page but kept separate for demo mode.
@@ -28,7 +36,7 @@ export default function DemoPage() {
     setProfiles(MOCK_PROFILES);
   }, []);
 
-  const demoProfile = profiles[1]; // Shovro Hossain
+  const demoProfile = profiles[1] ?? null; // Shovro Hossain
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
@@ -58,11 +66,17 @@ export default function DemoPage() {
         </section>
         <section className="mt-8">
           <h2 className="font-serif text-2xl mb-4">Demo Participant</h2>
-          <Card className="p-4 max-w-sm">
-            <p><strong>Name:</strong> {demoProfile.full_name}</p>
-            <p><strong>Handle:</strong> {demoProfile.handle}</p>
-            <p><strong>Institution:</strong> {demoProfile.institution}</p>
-          </Card>
+          {demoProfile ? (
+            <Card className="p-4 max-w-sm">
+              <p><strong>Name:</strong> {demoProfile.full_name}</p>
+              <p><strong>Handle:</strong> {demoProfile.handle}</p>
+              <p><strong>Institution:</strong> {demoProfile.institution}</p>
+            </Card>
+          ) : (
+            <Card className="p-4 max-w-sm">
+              <p>Loading demo participant data...</p>
+            </Card>
+          )}
         </section>
       </main>
       <Footer />

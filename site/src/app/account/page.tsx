@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -16,10 +18,17 @@ export default function AccountPage() {
   const [institution, setInstitution] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = React.useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase credentials not configured');
+      return null;
+    }
+    return createClient();
+  }, []);
 
   // Load current user profile
   useEffect(() => {
+    if (!supabase) return;
     const loadProfile = async () => {
       const { data: { user } , error: userErr } = await supabase.auth.getUser();
       if (userErr || !user) {
@@ -40,11 +49,11 @@ export default function AccountPage() {
       setInstitution(data.institution ?? '');
     };
     loadProfile();
-  }, []);
+  }, [supabase]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
+    if (!profile || !supabase) return;
     const { error } = await supabase
       .from('profiles')
       .update({ full_name: fullName, institution })

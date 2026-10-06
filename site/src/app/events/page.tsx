@@ -1,27 +1,33 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Eyebrow } from '@/components/ui/Eyebrow';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { EventCard } from '@/components/cards/EventCard';
-import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Search, Filter, SlidersHorizontal } from 'lucide-react';
 
 export default function EventsPage() {
-  const [events, setEvents] = useState([]);
-  const supabase = createClient();
+  const [events, setEvents] = useState<any[]>([]);
+  const supabase = React.useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase credentials not configured');
+      return null;
+    }
+    return createClient();
+  }, []);
   useEffect(() => {
+    if (!supabase) return;
     const fetchEvents = async () => {
       const { data, error } = await supabase.from('events').select('*, fest:fest_id(*)');
       if (error) console.error(error);
       else setEvents(data);
     };
     fetchEvents();
-  }, []);
+  }, [supabase]);
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -46,19 +52,6 @@ export default function EventsPage() {
       return matchesSearch && matchesCategory && matchesStatus;
     });
   }, [events, search, selectedCategory, statusFilter]);
-// Mock fallback removed – using real Supabase data
-
-
-      const matchesCategory = selectedCategory === 'all' || e.category === selectedCategory;
-
-      let matchesStatus = true;
-      if (statusFilter === 'open') matchesStatus = e.is_open === true;
-      if (statusFilter === 'closing_soon') matchesStatus = e.closing_soon === true;
-      if (statusFilter === 'full') matchesStatus = e.is_full === true;
-
-      return matchesSearch && matchesCategory && matchesStatus;
-    });
-  }, [search, selectedCategory, statusFilter]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">

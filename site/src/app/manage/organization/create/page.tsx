@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -17,7 +19,13 @@ export default function CreateOrganizationPage() {
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = React.useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase credentials not configured');
+      return null;
+    }
+    return createClient();
+  }, []);
 
   const slugify = (text: string) =>
     text
@@ -30,6 +38,10 @@ export default function CreateOrganizationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!supabase) {
+      setError('Supabase not configured');
+      return;
+    }
     const user = supabase.auth.getUser();
     const { data: userData, error: userErr } = await user;
     if (userErr || !userData?.user) {
@@ -41,6 +53,7 @@ export default function CreateOrganizationPage() {
     const { data: org, error: orgErr } = await supabase
       .from('organizations')
       .insert({ name, slug: orgSlug, description })
+      .select()
       .single();
     if (orgErr) {
       setError(orgErr.message);
@@ -57,7 +70,7 @@ export default function CreateOrganizationPage() {
       return;
     }
     // Redirect to dashboard or organization page
-    router.push('/dashboard');
+    router.push(`/dashboard`);
   };
 
   return (

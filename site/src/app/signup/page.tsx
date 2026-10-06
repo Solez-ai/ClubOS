@@ -1,3 +1,5 @@
+'use client';
+
 import { redirect } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';

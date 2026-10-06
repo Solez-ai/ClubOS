@@ -1,11 +1,13 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import Link from 'next/link';
 
 /**
  * /dashboard – shows organizations owned by the logged‑in user and shortcuts to create fests / events.
@@ -14,9 +16,16 @@ export default function DashboardPage() {
   const [orgs, setOrgs] = useState<any[]>([]);
   const [error, setError] = useState('');
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = React.useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase credentials not configured');
+      return null;
+    }
+    return createClient();
+  }, []);
 
   useEffect(() => {
+    if (!supabase) return;
     const loadOrgs = async () => {
       const { data: { user }, error: userErr } = await supabase.auth.getUser();
       if (userErr || !user) {
@@ -38,7 +47,7 @@ export default function DashboardPage() {
       setOrgs(owned);
     };
     loadOrgs();
-  }, []);
+  }, [supabase, router]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
