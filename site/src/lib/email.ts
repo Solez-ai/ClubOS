@@ -149,33 +149,33 @@ export async function sendEmail(to: string | undefined, subject: string | undefi
 }
 
 // Send registration confirmation email
-async function sendRegConfirm(
+export async function sendRegistrationConfirmation(
   email: string,
   data: RegistrationEmailData
 ): Promise<boolean> {
   const subject = EMAILS.registrationConfirmation.subject(data.eventTitle, data.festTitle);
   const body = EMAILS.registrationConfirmation.body(data);
-  return sendEmail(email, subject, body);
+  return await sendEmail(email, subject, body);
 }
 
 // Send payment decline notification
-async function sendPayDecline(
+export async function sendPaymentDecline(
   email: string,
   data: DeclineEmailData
 ): Promise<boolean> {
   const subject = EMAILS.paymentDeclined.subject(data.eventTitle);
   const body = EMAILS.paymentDeclined.body(data);
-  return sendEmail(email, subject, body);
+  return await sendEmail(email, subject, body);
 }
 
 // Send payment verified notification
-async function sendPayVerify(
+export async function sendPaymentVerified(
   email: string,
   data: VerifyEmailData
 ): Promise<boolean> {
   const subject = EMAILS.paymentVerified.subject(data.eventTitle);
   const body = EMAILS.paymentVerified.body(data);
-  return sendEmail(email, subject, body);
+  return await sendEmail(email, subject, body);
 }
 
 // Send email when a registration is created (called from the registration page)
@@ -198,6 +198,9 @@ export async function notifyRegistrationCreated(registration: any, event: any, p
     totalPrice: registration.total_price || 0,
     paymentMethod: registration.payment_method,
   };
+
+  const subject = EMAILS.registrationConfirmation.subject(event.title, event.fest?.title || '');
+  const body = EMAILS.registrationConfirmation.body(emailData);
 
   await sendRegistrationConfirmation(profile.email, emailData);
 
@@ -228,6 +231,9 @@ export async function notifyPaymentDeclined(registration: any, event: any, profi
     ticketCode: registration.ticket_code,
     declineReason: reason,
   };
+
+  const subject = EMAILS.paymentDeclined.subject(event.title);
+  const body = EMAILS.paymentDeclined.body(emailData);
 
   await sendPaymentDecline(profile.email, emailData);
 
@@ -261,6 +267,9 @@ export async function notifyPaymentVerified(registration: any, event: any, profi
     venue: event.venue || 'TBA',
     eventTime: event.starts_at ? new Date(event.starts_at).toLocaleTimeString('en-BD') : 'TBA',
   };
+
+  const subject = EMAILS.paymentVerified.subject(event.title);
+  const body = EMAILS.paymentVerified.body(emailData);
 
   await sendPaymentVerified(profile.email, emailData);
 

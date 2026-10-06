@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
   Users, Calendar, Check, X, Clock, Ticket, Download, ExternalLink,
-  AlertCircle, Shield, Wallet, Phone, Mail
+  AlertCircle, Shield, Wallet, Phone
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -28,13 +28,13 @@ export default function ManagePage() {
     const fetchData = async () => {
       if (!supabase) return;
 
-      const { data: { data: authData } } = await supabase.auth.getUser();
+      const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) {
         window.location.href = '/login';
         return;
       }
 
-      setUser(data.user);
+      setUser(authData.user);
 
       // Fetch all registrations for this user
       const { data, error } = await supabase
@@ -47,7 +47,7 @@ export default function ManagePage() {
           ),
           profile:profiles(*)
         `)
-        .eq('user_id', data.user.id)
+        .eq('user_id', authData.user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -199,7 +199,7 @@ export default function ManagePage() {
                           </div>
                           {reg.payment_method && (
                             <div className="text-xs text-[var(--muted)]">
-                              Paid via: {reg.payment_method.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              Paid via: {reg.payment_method?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                             </div>
                           )}
                           {reg.transaction_id && (

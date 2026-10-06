@@ -20,9 +20,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
-          className={`h-11 px-3.5 bg-[var(--surface)] border ${
-            error ? 'border-[var(--danger)]' : 'border-[var(--border)] hover:border-[var(--border-strong)]'
-          } rounded-[6px] text-sm text-[var(--text)] placeholder-[var(--muted)]/50 focus:outline-none focus:border-[var(--accent)] transition-colors duration-150 ${className}`}
+          className={`h-12 px-4 bg-[var(--bg-elevated)] border ${
+            error ? 'border-[var(--danger)] focus:ring-[var(--danger)]/20' : 'border-[var(--border)] hover:border-[var(--border-strong)]'
+          } rounded-[var(--radius)] text-sm text-[var(--text)] placeholder-[var(--text-muted)]/50 focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 transition-colors duration-150 ${className}`}
           {...props}
         />
         {error ? (

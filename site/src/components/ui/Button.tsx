@@ -20,7 +20,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      'inline-flex items-center justify-center font-medium rounded-[6px] transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] active:scale-[0.985] disabled:opacity-50 disabled:pointer-events-none select-none cursor-pointer';
+      'inline-flex items-center justify-center font-medium rounded-[var(--radius)] transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer touch-manipulation user-select-none';
 
     const sizeStyles = {
       sm: 'h-9 px-3 text-xs',
@@ -29,10 +29,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const variantStyles = {
-      primary: 'bg-[var(--accent)] text-[var(--accent-fg)] hover:opacity-90 font-medium',
-      secondary: 'bg-transparent border border-[var(--border-strong)] text-[var(--text)] hover:bg-[var(--surface-2)]',
-      ghost: 'bg-transparent text-[var(--text)] hover:underline underline-offset-4',
-      destructive: 'bg-transparent border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger)]/10',
+      primary: 'bg-[var(--accent)] text-[var(--accent-fg)] hover:bg-[var(--accent-hover)] shadow-sm hover:shadow-md font-medium',
+      secondary: 'bg-[var(--surface)] border border-[var(--border-strong)] text-[var(--text)] hover:bg-[var(--surface-2)] hover:border-[var(--border-strong)]',
+      ghost: 'bg-transparent text-[var(--text)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]',
+      destructive: 'bg-transparent border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger)]/10 hover:text-[var(--danger-fg)]',
     };
 
     return (

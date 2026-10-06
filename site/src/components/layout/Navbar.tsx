@@ -3,13 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Compass, QrCode, User, Home, Bell, Search, Trophy, Calendar, Sparkles } from 'lucide-react';
+import { Compass, QrCode, User, Home, Bell, Search, Trophy, Calendar, Sparkles, Sun, Moon, Menu, X } from 'lucide-react';
 import { CommandPalette } from './CommandPalette';
+import { useTheme } from '@/lib/theme';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -43,21 +46,21 @@ export const Navbar: React.FC = () => {
     <>
       {/* DESKTOP NAVBAR */}
       <header
-        className={`sticky top-0 z-40 w-full bg-[var(--bg)] transition-colors duration-200 ${
+        className={`sticky top-0 z-40 w-full bg-[var(--bg)]/90 backdrop-blur-md transition-colors duration-200 ${
           scrolled ? 'border-b border-[var(--border)] shadow-sm' : ''
         }`}
       >
-        <div className="max-w-[1200px] mx-auto h-[72px] px-4 sm:px-6 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto h-[72px] px-4 sm:px-6 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-1.5 group cursor-pointer">
+          <Link href="/" className="flex items-center gap-1.5 group cursor-pointer shrink-0">
             <span className="font-serif text-2xl font-normal text-[var(--text)] tracking-tight">
               ClubOS
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] group-hover:scale-125 transition-transform" />
           </Link>
 
-          {/* Center Links */}
-          <nav className="hidden md:flex items-center gap-8">
+          {/* Center Links - Desktop */}
+          <nav className="hidden lg:flex items-center gap-6 flex-1 justify-center">
             {navLinks.map((link) => {
               const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
               return (
@@ -65,12 +68,14 @@ export const Navbar: React.FC = () => {
                   key={link.href}
                   href={link.href}
                   className={`text-sm font-medium transition-colors relative py-1 ${
-                    isActive ? 'text-[var(--text)]' : 'text-[var(--muted)] hover:text-[var(--text)]'
+                    isActive
+                      ? 'text-[var(--text)]'
+                      : 'text-[var(--muted)] hover:text-[var(--text)]'
                   }`}
                 >
                   {link.label}
                   {isActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[var(--accent)]" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[var(--accent)] rounded-full" />
                   )}
                 </Link>
               );
@@ -78,10 +83,24 @@ export const Navbar: React.FC = () => {
           </nav>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <Sun size={18} strokeWidth={1.5} />
+              ) : (
+                <Moon size={18} strokeWidth={1.5} />
+              )}
+            </button>
+
+            {/* Search (Desktop) */}
             <button
               onClick={() => setPaletteOpen(true)}
-              className="hidden sm:flex items-center gap-2 h-9 px-3 bg-[var(--surface)] border border-[var(--border)] rounded-[6px] text-xs text-[var(--muted)] hover:border-[var(--border-strong)] transition-colors cursor-pointer"
+              className="hidden md:flex items-center gap-2 h-9 px-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--muted)] hover:border-[var(--border-strong)] transition-colors cursor-pointer"
             >
               <Search size={14} />
               <span>Search...</span>
@@ -90,85 +109,131 @@ export const Navbar: React.FC = () => {
               </kbd>
             </button>
 
+            {/* Notifications */}
             <Link
               href="/notifications"
-              className="p-2 text-[var(--muted)] hover:text-[var(--text)] transition-colors relative"
+              className="hidden sm:flex p-2 text-[var(--muted)] hover:text-[var(--text)] transition-colors relative"
               title="Notifications"
             >
               <Bell size={18} strokeWidth={1.5} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--accent)]" />
             </Link>
 
+            {/* Scan QR */}
             <Link
               href="/scan"
-              className="hidden sm:flex items-center gap-2 h-9 px-3.5 bg-transparent border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent-soft)] rounded-[6px] text-xs font-medium transition-colors"
+              className="hidden sm:flex items-center gap-2 h-9 px-3.5 bg-transparent border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent-soft)] rounded-lg text-xs font-medium transition-colors"
             >
               <QrCode size={15} />
-              <span>Scan QR</span>
+              <span>Scan</span>
             </Link>
 
+            {/* Passport - Mobile CTA */}
             <Link
               href="/passport"
-              className="flex items-center gap-2 h-9 px-3.5 bg-[var(--accent)] text-[var(--accent-fg)] hover:opacity-90 rounded-[6px] text-xs font-medium transition-opacity"
+              className="flex items-center gap-2 h-9 px-3.5 bg-[var(--accent)] text-[var(--accent-fg)] hover:opacity-90 rounded-lg text-xs font-medium transition-opacity shrink-0"
             >
               <User size={15} />
-              <span className="hidden xs:inline">Passport</span>
+              <span className="hidden lg:inline">Passport</span>
             </Link>
+
+            {/* Mobile Menu Toggle */}
+            <button
+              className="lg:hidden p-2 text-[var(--muted)] hover:text-[var(--text)]"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Menu Dropdown */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden border-t border-[var(--border)] bg-[var(--bg)]/95 backdrop-blur-md">
+            <nav className="max-w-[1400px] mx-auto px-4 py-4 space-y-1">
+              {navLinks.map((link) => {
+                const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block w-full py-3 px-4 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                        : 'text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+              <div className="pt-3 border-t border-[var(--border)]">
+                <Link
+                  href="/scan"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 py-3 px-4 bg-[var(--accent)] text-[var(--accent-fg)] rounded-lg text-sm font-medium hover:opacity-90"
+                >
+                  <QrCode size={16} />
+                  <span>Scan QR</span>
+                </Link>
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* MOBILE BOTTOM NAVIGATION */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg)]/95 border-t border-[var(--border)] px-4 py-2 safe-area-pb backdrop-blur-md">
-        <div className="flex items-center justify-around">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg)]/95 border-t border-[var(--border)] px-2 py-2 safe-area-pb backdrop-blur-md">
+        <div className="flex items-center justify-around max-w-[600px] mx-auto">
           <Link
             href="/"
-            className={`flex flex-col items-center gap-1 ${
+            className={`flex flex-col items-center gap-1 py-1 ${
               pathname === '/' ? 'text-[var(--accent)]' : 'text-[var(--muted)]'
             }`}
           >
-            <Home size={18} strokeWidth={1.5} />
-            <span className="text-[10px] font-mono">Home</span>
+            <Home size={20} strokeWidth={1.5} />
+            <span className="text-[9px] font-mono uppercase tracking-wider">Home</span>
           </Link>
 
           <Link
             href="/fests"
-            className={`flex flex-col items-center gap-1 ${
+            className={`flex flex-col items-center gap-1 py-1 ${
               pathname.startsWith('/fests') ? 'text-[var(--accent)]' : 'text-[var(--muted)]'
             }`}
           >
-            <Compass size={18} strokeWidth={1.5} />
-            <span className="text-[10px] font-mono">Fests</span>
+            <Compass size={20} strokeWidth={1.5} />
+            <span className="text-[9px] font-mono uppercase tracking-wider">Fests</span>
           </Link>
 
-          {/* Center Scan Button with Brass Ring */}
+          {/* Center Scan Button */}
           <Link
             href="/scan"
-            className="flex items-center justify-center w-12 h-12 rounded-full bg-[var(--accent)] text-[var(--accent-fg)] shadow-lg -mt-5 border-4 border-[var(--bg)] transition-transform active:scale-95"
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--accent)] text-[var(--accent-fg)] shadow-lg -mt-4 border-2 border-[var(--bg)] transition-transform active:scale-95"
             title="Scan QR Code"
           >
-            <QrCode size={22} />
+            <QrCode size={20} />
           </Link>
 
           <Link
             href="/passport"
-            className={`flex flex-col items-center gap-1 ${
+            className={`flex flex-col items-center gap-1 py-1 ${
               pathname.startsWith('/passport') ? 'text-[var(--accent)]' : 'text-[var(--muted)]'
             }`}
           >
-            <User size={18} strokeWidth={1.5} />
-            <span className="text-[10px] font-mono">Passport</span>
+            <User size={20} strokeWidth={1.5} />
+            <span className="text-[9px] font-mono uppercase tracking-wider">Passport</span>
           </Link>
 
           <button
             onClick={() => setPaletteOpen(true)}
-            className="flex flex-col items-center gap-1 text-[var(--muted)] cursor-pointer"
+            className="flex flex-col items-center gap-1 py-1 text-[var(--muted)] cursor-pointer"
           >
-            <Search size={18} strokeWidth={1.5} />
-            <span className="text-[10px] font-mono">Search</span>
+            <Search size={20} strokeWidth={1.5} />
+            <span className="text-[9px] font-mono uppercase tracking-wider">Search</span>
           </button>
         </div>
-      </div>
+      </nav>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </>

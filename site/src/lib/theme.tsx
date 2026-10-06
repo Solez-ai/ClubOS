@@ -1,0 +1,60 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+type Theme = 'dark' | 'light';
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>('dark');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const stored = localStorage.getItem('theme') as Theme | null;
+    const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+    const initial = stored || (prefersLight ? 'light' : 'dark');
+    setThemeState(initial);
+    document.documentElement.setAttribute('data-theme', initial);
+  }, []);
+
+  const setTheme = useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [theme, setTheme]);
+
+  // Prevent flash of wrong theme
+  if (!mounted) {
+    return (
+      <ThemeContext.Provider value={{ theme: 'dark', toggleTheme, setTheme }}>
+        {children}
+      </ThemeContext.Provider>
+    );
+  }
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+}
