@@ -1,6 +1,8 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Compass, QrCode, ShieldCheck, Trophy, Sparkles, Calendar, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Compass, QrCode } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Eyebrow } from '@/components/ui/Eyebrow';
@@ -9,14 +11,54 @@ import { Stat } from '@/components/ui/Stat';
 import { Reveal } from '@/components/ui/Reveal';
 import { FestCard } from '@/components/cards/FestCard';
 import { EventCard } from '@/components/cards/EventCard';
-import { PassportCard } from '@/components/ui/PassportCard';
 import { Card } from '@/components/ui/Card';
-import { MOCK_FESTS, MOCK_EVENTS, MOCK_PROFILES } from '@/lib/mockData';
+import { createClient } from '@/lib/supabase/client';
 
 export default function HomePage() {
-  const featuredFests = MOCK_FESTS;
-  const upcomingEvents = MOCK_EVENTS.slice(0, 3);
-  const demoProfile = MOCK_PROFILES[1];
+  const [fests, setFests] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabase = React.useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase credentials not configured');
+      return null;
+    }
+    return createClient();
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch published fests
+      const { data: festsData } = await supabase
+        .from('fests')
+        .select('*')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (festsData) setFests(festsData);
+
+      // Fetch upcoming published events
+      const { data: eventsData } = await supabase
+        .from('events')
+        .select('*, fest:fest_id(title, slug)')
+        .eq('is_published', true)
+        .gte('starts_at', new Date().toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(3);
+
+      if (eventsData) setEvents(eventsData);
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [supabase]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
@@ -62,15 +104,24 @@ export default function HomePage() {
             </Reveal>
           </div>
 
-          {/* Right Column (5 cols) — Passport Card Preview */}
+          {/* Right Column (5 cols) — Empty state or CTA */}
           <div className="lg:col-span-5 flex justify-center lg:justify-end">
             <Reveal delay={0.2} className="w-full max-w-md">
-              <div className="relative">
-                <PassportCard profile={demoProfile} />
-                <div className="text-center mt-3 font-mono text-xs text-[var(--muted)]">
-                  Click card to flip front / back QR
+              <Card className="p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-[var(--accent)]/10 flex items-center justify-center mx-auto mb-4">
+                  <Compass size={32} className="text-[var(--accent)]" />
                 </div>
-              </div>
+                <h3 className="font-serif text-xl mb-2">Your Passport Awaits</h3>
+                <p className="text-sm text-[var(--muted)] mb-4">
+                  Sign up to get your digital passport and start collecting stamps across all fests.
+                </p>
+                <Link href="/signup">
+                  <Button size="lg" className="gap-2 mx-auto w-fit">
+                    <span>Create Your Passport</span>
+                    <ArrowRight size={16} />
+                  </Button>
+                </Link>
+              </Card>
             </Reveal>
           </div>
         </div>
@@ -79,10 +130,10 @@ export default function HomePage() {
       {/* STAT STRIP (Hairline separated) */}
       <section className="w-full border-b border-[var(--border)] bg-[var(--surface)]/50">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
-          <Stat value="3,000+" label="Participants" delta="From 150+ institutions" />
-          <Stat value="03" label="Fests Seeded" delta="Carnival, Winter, Freshers" />
-          <Stat value="16+" label="Events & Contests" delta="Web, CP, AI, Robotics, Gaming" />
-          <Stat value="01" label="Unified Passport" delta="Digital Stamps & XP Ledger" />
+          <Stat value="Real-time" label="Live Data" delta="From your database" />
+          <Stat value="Dynamic" label="Fests" delta="Published events only" />
+          <Stat value="Actual" label="Events" delta="Upcoming only" />
+          <Stat value="Secure" label="Platform" delta="Built for real use" />
         </div>
       </section>
 
@@ -105,9 +156,19 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {featuredFests.map((fest) => (
-              <FestCard key={fest.id} fest={fest} />
-            ))}
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-64 bg-[var(--surface-2)] rounded-xl animate-pulse" />
+              ))
+            ) : fests.length > 0 ? (
+              fests.map((fest: any) => (
+                <FestCard key={fest.id} fest={fest} />
+              ))
+            ) : (
+              <div className="col-span-3 text-center py-12">
+                <p className="text-[var(--muted)]">No fests published yet</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -172,9 +233,19 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {upcomingEvents.map((ev) => (
-              <EventCard key={ev.id} event={ev} festName="9th DRMC Tech Carnival 2026" />
-            ))}
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-64 bg-[var(--surface-2)] rounded-xl animate-pulse" />
+              ))
+            ) : events.length > 0 ? (
+              events.map((ev: any) => (
+                <EventCard key={ev.id} event={ev} festName={ev.fest?.title} />
+              ))
+            ) : (
+              <div className="col-span-3 text-center py-12">
+                <p className="text-[var(--muted)]">No upcoming events</p>
+              </div>
+            )}
           </div>
         </div>
       </section>

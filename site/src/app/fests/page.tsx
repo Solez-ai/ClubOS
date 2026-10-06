@@ -1,14 +1,57 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Eyebrow } from '@/components/ui/Eyebrow';
 import { FestCard } from '@/components/cards/FestCard';
-import { MOCK_FESTS } from '@/lib/mockData';
+import { createClient } from '@/lib/supabase/client';
 
 export default function FestsPage() {
-  const ongoingFests = MOCK_FESTS.filter((f) => new Date(f.start_date) <= new Date() && new Date(f.end_date) >= new Date());
-  const upcomingFests = MOCK_FESTS.filter((f) => new Date(f.start_date) > new Date());
-  const pastFests = MOCK_FESTS.filter((f) => new Date(f.end_date) < new Date());
+  const [fests, setFests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabase = React.useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase credentials not configured');
+      return null;
+    }
+    return createClient();
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('fests')
+        .select('*')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+
+      if (data) setFests(data);
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [supabase]);
+
+  const ongoingFests = fests.filter((f: any) => new Date(f.start_date) <= new Date() && new Date(f.end_date) >= new Date());
+  const upcomingFests = fests.filter((f: any) => new Date(f.start_date) > new Date());
+  const pastFests = fests.filter((f: any) => new Date(f.end_date) < new Date());
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--text)]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-[var(--muted)]">Loading fests...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
