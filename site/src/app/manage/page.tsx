@@ -45,7 +45,7 @@ export default function ManagePage() {
             fest:fest_id(*),
             segments(*)
           ),
-          profile:profiles(*)
+          profile:profiles!registrations_user_id_fkey(*)
         `)
         .eq('user_id', authData.user.id)
         .order('created_at', { ascending: false });

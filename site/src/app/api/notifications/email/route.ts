@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       .select(
         `
         *,
-        profile:profiles(id, email, full_name),
+        profile:profiles!registrations_user_id_fkey(id, email, full_name),
         event:events(id, title, starts_at, venue, fest:fest_id(title, org:organizations(name))),
         registration_segments(segments(title, price, is_free))
       `

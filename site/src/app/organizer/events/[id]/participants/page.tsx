@@ -70,7 +70,7 @@ export default function ParticipantsPage() {
         .from('registrations')
         .select(`
           *,
-          profile:profiles(*),
+          profile:profiles!registrations_user_id_fkey(*),
           registration_segments(segments(*))
         `)
         .eq('event_id', eventId)
@@ -117,11 +117,11 @@ export default function ParticipantsPage() {
 
       if (data) setRegistrations(data);
 
-      // Best-effort confirmation email via server route
+      // Best-effort payment-verified email via server route
       try {
-        await notifyRegistrationEmail('registration_confirmation', registrationId);
+        await notifyRegistrationEmail('payment_verified', registrationId);
       } catch (emailErr) {
-        console.warn('Registration confirmation email failed:', emailErr);
+        console.warn('Payment verified email failed:', emailErr);
       }
     } catch (err) {
       console.error('Error verifying registration:', err);
