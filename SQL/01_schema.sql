@@ -8,12 +8,29 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- CUSTOM TYPES
 -- ============================================
 
-CREATE TYPE user_role AS ENUM ('participant', 'organizer', 'admin');
-CREATE TYPE reg_status AS ENUM ('pending', 'confirmed', 'waitlisted', 'cancelled', 'rejected', 'checked_in');
-CREATE TYPE event_category AS ENUM ('competition', 'workshop', 'seminar', 'gaming', 'robotics', 'quiz', 'social', 'other', 'science_technology', 'music_art', 'literature', 'sports', 'business', 'health', 'fashion', 'photography', 'film', 'theatre', 'dance', 'food');
-CREATE TYPE payment_method AS ENUM ('bkash_send_money', 'bkash_pay_bill', 'nagad_send_money', 'nagad_pay_bill');
-CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'verified', 'declined', 'refunded');
-CREATE TYPE segment_type AS ENUM ('workshop', 'competition', 'seminar', 'gaming', 'social', 'other');
+DO $$ BEGIN
+  CREATE TYPE user_role AS ENUM ('participant', 'organizer', 'admin');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE reg_status AS ENUM ('pending', 'confirmed', 'waitlisted', 'cancelled', 'rejected', 'checked_in');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE event_category AS ENUM ('competition', 'workshop', 'seminar', 'gaming', 'robotics', 'quiz', 'social', 'other', 'science_technology', 'music_art', 'literature', 'sports', 'business', 'health', 'fashion', 'photography', 'film', 'theatre', 'dance', 'food');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE payment_method AS ENUM ('bkash_send_money', 'bkash_pay_bill', 'nagad_send_money', 'nagad_pay_bill');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'verified', 'declined', 'refunded');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE segment_type AS ENUM ('workshop', 'competition', 'seminar', 'gaming', 'social', 'other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- ============================================
 -- TABLES
@@ -363,23 +380,29 @@ ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Users can read/update their own profile
+DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON profiles;
 CREATE POLICY "Profiles are viewable by authenticated users" ON profiles
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile" ON profiles
   FOR UPDATE TO authenticated USING (auth.uid() = id);
 
 -- Organizations: Public read, organizers can manage
+DROP POLICY IF EXISTS "Organizations are viewable by everyone" ON organizations;
 CREATE POLICY "Organizations are viewable by everyone" ON organizations
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Organizers can insert organizations" ON organizations;
 CREATE POLICY "Organizers can insert organizations" ON organizations
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = created_by);
 
+DROP POLICY IF EXISTS "Organizers can update own organizations" ON organizations;
 CREATE POLICY "Organizers can update own organizations" ON organizations
   FOR UPDATE TO authenticated USING (auth.uid() = created_by);
 
 -- Organization Members
+DROP POLICY IF EXISTS "Members visible to org members" ON organization_members;
 CREATE POLICY "Members visible to org members" ON organization_members
   FOR SELECT TO authenticated USING (
     EXISTS (
@@ -389,17 +412,21 @@ CREATE POLICY "Members visible to org members" ON organization_members
     )
   );
 
+DROP POLICY IF EXISTS "Users can join organizations" ON organization_members;
 CREATE POLICY "Users can join organizations" ON organization_members
   FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 -- Category Tags: Public read
+DROP POLICY IF EXISTS "Category tags are viewable by everyone" ON category_tags;
 CREATE POLICY "Category tags are viewable by everyone" ON category_tags
   FOR SELECT TO authenticated USING (true);
 
 -- Fests: Public read when published
+DROP POLICY IF EXISTS "Published fests are viewable by everyone" ON fests;
 CREATE POLICY "Published fests are viewable by everyone" ON fests
   FOR SELECT TO authenticated USING (is_published = true OR created_by = auth.uid());
 
+DROP POLICY IF EXISTS "Organizers can manage own fests" ON fests;
 CREATE POLICY "Organizers can manage own fests" ON fests
   FOR ALL TO authenticated USING (
     created_by = auth.uid() OR
@@ -412,6 +439,7 @@ CREATE POLICY "Organizers can manage own fests" ON fests
   );
 
 -- Events: Public read when published
+DROP POLICY IF EXISTS "Published events are viewable by everyone" ON events;
 CREATE POLICY "Published events are viewable by everyone" ON events
   FOR SELECT TO authenticated USING (
     is_published = true OR
@@ -423,6 +451,7 @@ CREATE POLICY "Published events are viewable by everyone" ON events
     )
   );
 
+DROP POLICY IF EXISTS "Organizers can manage own events" ON events;
 CREATE POLICY "Organizers can manage own events" ON events
   FOR ALL TO authenticated USING (
     created_by = auth.uid() OR
@@ -436,6 +465,7 @@ CREATE POLICY "Organizers can manage own events" ON events
   );
 
 -- Segments: Visible to event participants
+DROP POLICY IF EXISTS "Segments visible to event participants" ON segments;
 CREATE POLICY "Segments visible to event participants" ON segments
   FOR SELECT TO authenticated USING (
     EXISTS (
@@ -445,6 +475,7 @@ CREATE POLICY "Segments visible to event participants" ON segments
     )
   );
 
+DROP POLICY IF EXISTS "Organizers can manage segments" ON segments;
 CREATE POLICY "Organizers can manage segments" ON segments
   FOR ALL TO authenticated USING (
     EXISTS (
@@ -455,9 +486,11 @@ CREATE POLICY "Organizers can manage segments" ON segments
   );
 
 -- Registrations: Users can see own, organizers can see event registrations
+DROP POLICY IF EXISTS "Users can view own registrations" ON registrations;
 CREATE POLICY "Users can view own registrations" ON registrations
   FOR SELECT TO authenticated USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Event organizers can view registrations" ON registrations;
 CREATE POLICY "Event organizers can view registrations" ON registrations
   FOR SELECT TO authenticated USING (
     EXISTS (
@@ -467,13 +500,16 @@ CREATE POLICY "Event organizers can view registrations" ON registrations
     )
   );
 
+DROP POLICY IF EXISTS "Users can create registrations" ON registrations;
 CREATE POLICY "Users can create registrations" ON registrations
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update own registrations" ON registrations;
 CREATE POLICY "Users can update own registrations" ON registrations
   FOR UPDATE TO authenticated USING (user_id = auth.uid());
 
 -- Registration Segments
+DROP POLICY IF EXISTS "Users can view own registration segments" ON registration_segments;
 CREATE POLICY "Users can view own registration segments" ON registration_segments
   FOR SELECT TO authenticated USING (
     EXISTS (
@@ -483,6 +519,7 @@ CREATE POLICY "Users can view own registration segments" ON registration_segment
     )
   );
 
+DROP POLICY IF EXISTS "Users can manage own registration segments" ON registration_segments;
 CREATE POLICY "Users can manage own registration segments" ON registration_segments
   FOR ALL TO authenticated USING (
     EXISTS (
@@ -493,20 +530,25 @@ CREATE POLICY "Users can manage own registration segments" ON registration_segme
   );
 
 -- Notifications: Users see own
+DROP POLICY IF EXISTS "Users see own notifications" ON notifications;
 CREATE POLICY "Users see own notifications" ON notifications
   FOR SELECT TO authenticated USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can create notifications" ON notifications;
 CREATE POLICY "Users can create notifications" ON notifications
   FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Users can update own notifications" ON notifications;
 CREATE POLICY "Users can update own notifications" ON notifications
   FOR UPDATE TO authenticated USING (user_id = auth.uid());
 
 -- Activity Log: Public read for event activity
+DROP POLICY IF EXISTS "Activity log viewable by authenticated" ON activity_log;
 CREATE POLICY "Activity log viewable by authenticated" ON activity_log
   FOR SELECT TO authenticated USING (true);
 
 -- Announcements: Public read when published
+DROP POLICY IF EXISTS "Announcements viewable by authenticated" ON announcements;
 CREATE POLICY "Announcements viewable by authenticated" ON announcements
   FOR SELECT TO authenticated USING (true);
 
