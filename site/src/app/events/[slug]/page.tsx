@@ -53,7 +53,7 @@ export default function EventDetailPage() {
       }
 
       // Fetch event
-      const { data, error } = await supabase
+      const { data: eventDataRaw, error: eventError } = await supabase
         .from('events')
         .select(
           `*,
@@ -65,19 +65,19 @@ export default function EventDetailPage() {
         .eq('slug', slug)
         .single();
 
-      if (error) {
-        console.error('Error fetching event:', error);
+      if (eventError) {
+        console.error('Error fetching event:', eventError);
         setError('Event not found');
       } else {
-        setEvent(data);
+        setEvent(eventDataRaw as any);
       }
 
       // Check if user already registered
-      if (authData?.user && data) {
+      if (authData?.user && eventDataRaw) {
         const { data: reg } = await supabase
           .from('registrations')
           .select('id, status')
-          .eq('event_id', data.id)
+          .eq('event_id', (eventDataRaw as any).id)
           .eq('user_id', authData.user.id)
           .single();
 

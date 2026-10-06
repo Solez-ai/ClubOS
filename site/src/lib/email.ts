@@ -153,7 +153,7 @@ export async function sendRegistrationConfirmation(
   email: string,
   data: RegistrationEmailData
 ): Promise<boolean> {
-  const subject = EMAILS.registrationConfirmation.subject(data.eventTitle, data.festTitle);
+  const subject = EMAILS.registrationConfirmation.subject(data.eventTitle, data.festTitle || '');
   const body = EMAILS.registrationConfirmation.body(data);
   return await sendEmail(email, subject, body);
 }
@@ -202,7 +202,7 @@ export async function notifyRegistrationCreated(registration: any, event: any, p
   const subject = EMAILS.registrationConfirmation.subject(event.title, event.fest?.title || '');
   const body = EMAILS.registrationConfirmation.body(emailData);
 
-  await sendRegistrationConfirmation(profile.email, emailData);
+  await sendRegistrationConfirmation(profile.email || '', emailData);
 
   // Also record the email in the database
   if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -235,7 +235,7 @@ export async function notifyPaymentDeclined(registration: any, event: any, profi
   const subject = EMAILS.paymentDeclined.subject(event.title);
   const body = EMAILS.paymentDeclined.body(emailData);
 
-  await sendPaymentDecline(profile.email, emailData);
+  await sendPaymentDecline(profile.email || '', emailData);
 
   // Record in database
   if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -271,7 +271,7 @@ export async function notifyPaymentVerified(registration: any, event: any, profi
   const subject = EMAILS.paymentVerified.subject(event.title);
   const body = EMAILS.paymentVerified.body(emailData);
 
-  await sendPaymentVerified(profile.email, emailData);
+  await sendPaymentVerified(profile.email || '', emailData);
 
   // Record in database
   if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {

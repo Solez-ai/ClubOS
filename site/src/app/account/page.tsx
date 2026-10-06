@@ -10,8 +10,23 @@ import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { User, Save, Loader2, Camera, Building2, Mail, Phone } from 'lucide-react';
 
+interface ProfileData {
+  id: string;
+  full_name?: string;
+  institution?: string;
+  phone?: string;
+  bio?: string;
+  avatar_url?: string;
+  handle: string;
+  role: string;
+  email: string;
+  created_at: string;
+  passport_no: string;
+  xp: number;
+}
+
 export default function AccountPage() {
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -108,7 +123,7 @@ export default function AccountPage() {
       .from('avatars')
       .getPublicUrl(fileName);
 
-    setProfile(prev => ({ ...prev, avatar_url: urlData.publicUrl }));
+    setProfile(prev => prev ? { ...prev, avatar_url: urlData.publicUrl } : null);
   };
 
   if (loading) {
@@ -197,7 +212,7 @@ export default function AccountPage() {
               <Input
                 label="Full Name"
                 value={profile.full_name || ''}
-                onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                onChange={(e) => setProfile(prev => prev ? { ...prev, full_name: e.target.value } : null)}
                 placeholder="Enter your full name"
               />
 
@@ -217,7 +232,7 @@ export default function AccountPage() {
                   <input
                     type="tel"
                     value={profile.phone || ''}
-                    onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, phone: e.target.value } : null)}
                     placeholder="+880 1XXX-XXXXXX"
                     className="w-full pl-10 pr-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                   />
@@ -230,7 +245,7 @@ export default function AccountPage() {
                   <input
                     type="text"
                     value={profile.institution || ''}
-                    onChange={(e) => setProfile(prev => ({ ...prev, institution: e.target.value }))}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, institution: e.target.value } : null)}
                     placeholder="Your organization or club name"
                     className="w-full pl-10 pr-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                   />
@@ -241,7 +256,7 @@ export default function AccountPage() {
                 <label className="block text-sm font-medium mb-1.5">Bio</label>
                 <textarea
                   value={profile.bio || ''}
-                  onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                  onChange={(e) => setProfile(prev => prev ? { ...prev, bio: e.target.value } : null)}
                   placeholder="Tell us about yourself..."
                   rows={4}
                   className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"

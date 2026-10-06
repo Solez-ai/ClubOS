@@ -53,11 +53,11 @@ export default function EventsPage() {
       if (!supabase) return;
 
       // Check auth
-      const { data: { data: authData } } = await supabase.auth.getUser();
-      if (authData?.user) setUser(data.user);
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) setUser(authData.user);
 
       // Fetch events with fest and segments
-      const { data, error } = await supabase
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select(`
           *,
@@ -68,10 +68,10 @@ export default function EventsPage() {
         `)
         .order('starts_at', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching events:', error);
+      if (eventsError) {
+        console.error('Error fetching events:', eventsError);
       } else {
-        setEvents(data || []);
+        setEvents(eventsData || []);
       }
 
       // Fetch category tags
@@ -102,7 +102,7 @@ export default function EventsPage() {
         ...e,
         is_open: now >= startsAt && now <= deadline && hasCapacity,
         is_full: spotsLeft !== null && spotsLeft <= 0,
-        closing_soon: deadline - now < 7 * 24 * 60 * 60 * 1000 && deadline > now,
+        closing_soon: (deadline.getTime() - now.getTime()) < 7 * 24 * 60 * 60 * 1000 && deadline > now,
         spots_left: spotsLeft,
         tags_list: e.event_tags?.map((et: any) => et.tag_id) || [],
       };

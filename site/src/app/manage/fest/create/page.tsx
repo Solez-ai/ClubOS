@@ -52,7 +52,7 @@ export default function CreateFestPage() {
       if (!supabase) return;
 
       // Check auth
-      const { data: { data: authData } } = await supabase.auth.getUser();
+      const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) {
         router.push('/login');
         return;

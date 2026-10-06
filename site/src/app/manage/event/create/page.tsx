@@ -120,7 +120,7 @@ export default function CreateEventPage() {
     const init = async () => {
       if (!supabase) return;
 
-      const { data: { data: authData } } = await supabase.auth.getUser();
+      const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) {
         router.push('/login');
         return;

@@ -22,7 +22,7 @@ export default function ParticipantsPage() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'declined' | 'paid'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'paid' | 'declined'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [declineComment, setDeclineComment] = useState('');
   const [showDeclineModal, setShowDeclineModal] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function ParticipantsPage() {
       if (!supabase) return;
 
       // Check auth and organizer permission
-      const { data: { data: authData } } = await supabase.auth.getUser();
+      const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) {
         router.push('/login');
         return;
@@ -169,7 +169,9 @@ export default function ParticipantsPage() {
     // Filter by status
     if (filter !== 'all') {
       if (filter === 'paid' && reg.payment_status !== 'paid' && reg.payment_status !== 'verified') return false;
-      if (filter !== 'all' && filter !== 'paid' && reg.status !== filter) return false;
+      if (filter === 'pending' || filter === 'confirmed' || filter === 'declined') {
+        if (reg.status !== filter) return false;
+      }
     }
 
     // Search filter
