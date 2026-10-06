@@ -1,189 +1,600 @@
 'use client';
 
-import React, { useState, use } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
-import { QRCodeSVG } from 'qrcode.react';
-import { ArrowLeft, CheckCircle2, QrCode, Calendar, ShieldCheck, Ticket } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
-import { Eyebrow } from '@/components/ui/Eyebrow';
-import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { MOCK_EVENTS, MOCK_PROFILES } from '@/lib/mockData';
+import {
+  ArrowLeft, Check, Upload, FileText, Camera, AlertCircle, Lock,
+  Loader2, Smartphone, CreditCard
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
-export default function RegisterPage(props: { params: Promise<{ slug: string }> }) {
-  const params = use(props.params);
+// BKash pink color: #F74C3C or #E91E63
+// Nagad orange/yellow: #F59E0B or #FF9800
+
+const PAYMENT_INFO: Record<string, { number: string; type: string; label: string; instructions: string }> = {
+  'bkash_send_money': {
+    number: '01700000000',
+    type: 'send_money',
+    label: 'BKash - Send Money',
+    instructions: 'Send money to the number above using BKash app or USSD *247#'
+  },
+  'bkash_pay_bill': {
+    number: 'BKash Bill',
+    type: 'pay_bill',
+    label: 'BKash - Pay Bill',
+    instructions: 'Pay the bill number provided after registration using BKash app'
+  },
+  'nagad_send_money': {
+    number: '01800000000',
+    type: 'send_money',
+    label: 'Nagad - Send Money',
+    instructions: 'Send money to the number above using Nagad app or USSD *167#'
+  },
+  'nagad_pay_bill': {
+    number: 'Nagad Bill',
+    type: 'pay_bill',
+    label: 'Nagad - Pay Bill',
+    instructions: 'Pay the bill number provided after registration using Nagad app'
+  },
+};
+
+export default function EventRegistrationPaymentPage() {
+  const params = useParams();
   const router = useRouter();
-  const event = MOCK_EVENTS.find((e) => e.slug === params.slug) || MOCK_EVENTS[0];
-  const user = MOCK_PROFILES[1]; // Demo participant
+  const slug = params.slug as string;
 
-  const [fullName, setFullName] = useState(user.full_name);
-  const [email, setEmail] = useState(user.email);
-  const [phone, setPhone] = useState(user.phone || '');
-  const [institution, setInstitution] = useState(user.institution || '');
-  const [studentId, setStudentId] = useState(user.student_id || '');
-  const [teamName, setTeamName] = useState('');
-  const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
+  const [event, setEvent] = useState<any>(null);
+  const [registration, setRegistration] = useState<any>(null);
+  const [segments, setSegments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [transactionId, setTransactionId] = useState('');
+  const [transactionMobile, setTransactionMobile] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
+  const [screenshotUrl, setScreenshotUrl] = useState('');
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [ticketCode, setTicketCode] = useState('');
+  const supabase = useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn('Supabase credentials not configured');
+      return null;
+    }
+    return createClient();
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!supabase) return;
 
-    setTimeout(() => {
-      const generatedTicket = `TC2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-      setTicketCode(generatedTicket);
-      setIsSubmitting(false);
-      setSubmitted(true);
-    }, 600);
+      // Check auth
+      const { data: { data: authData } } = await supabase.auth.getUser();
+      if (!authData?.user) {
+        router.push('/login');
+        return;
+      }
+
+      setUser(authData.user);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+      setUserProfile(profile);
+
+      // Fetch event
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('*, segments(*)')
+        .eq('slug', slug)
+        .single();
+
+      if (!eventData) {
+        setError('Event not found');
+        setLoading(false);
+        return;
+      }
+
+      setEvent(eventData);
+
+      // Fetch registration
+      const { data: regData } = await supabase
+        .from('registrations')
+        .select('*, registration_segments(segments(*))')
+        .eq('event_id', eventData.id)
+        .eq('user_id', authData.user.id)
+        .eq('status', 'pending')
+        .single();
+
+      if (!regData) {
+        setError('No pending registration found. Please register first.');
+        setLoading(false);
+        return;
+      }
+
+      setRegistration(regData);
+      setSegments(regData.registration_segments || []);
+
+      // Determine payment method from segments
+      const paidSegments = eventData.segments?.filter((s: any) => !s.is_free);
+      if (paidSegments && paidSegments.length > 0) {
+        setSelectedPaymentMethod(paidSegments[0].payment_method);
+      }
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [supabase, slug, router]);
+
+  const handleScreeshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !supabase || !registration) return;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `payment_${registration.id}_${Date.now()}.${fileExt}`;
+
+    const { data: uploadData, error: uploadErr } = await supabase.storage
+      .from('payments')
+      .upload(fileName, file);
+
+    if (uploadErr) {
+      setError(uploadErr.message);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('payments')
+      .getPublicUrl(fileName);
+
+    setScreenshotUrl(urlData.publicUrl);
+
+    // Update registration with screenshot
+    await supabase
+      .from('registrations')
+      .update({ payment_screenshot_url: urlData.publicUrl })
+      .eq('id', registration.id);
   };
+
+  const handleSubmitPayment = async () => {
+    if (!supabase || !registration || !selectedPaymentMethod) return;
+
+    if (!transactionId.trim()) {
+      setError('Please enter your transaction ID');
+      return;
+    }
+
+    if (!transactionMobile.trim()) {
+      setError('Please enter the mobile number you paid from');
+      return;
+    }
+
+    if (!screenshotUrl) {
+      setError('Please upload a payment screenshot');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const { error: updateErr } = await supabase
+        .from('registrations')
+        .update({
+          payment_method: selectedPaymentMethod,
+          transaction_id: transactionId,
+          transaction_mobile: transactionMobile,
+          payment_status: 'paid',
+          payment_screenshot_url: screenshotUrl,
+        })
+        .eq('id', registration.id);
+
+      if (updateErr) {
+        setError(updateErr.message);
+        setSubmitting(false);
+        return;
+      }
+
+      // Update registration segments
+      for (const seg of segments) {
+        if (!seg.segment?.is_free) {
+          await supabase
+            .from('registration_segments')
+            .update({ status: 'paid' })
+            .eq('registration_id', registration.id)
+            .eq('segment_id', seg.segment_id);
+        }
+      }
+
+      setSuccess('Payment submitted successfully! Organizers will verify your payment and confirm your registration.');
+      setSubmitting(false);
+
+      setTimeout(() => {
+        router.push(`/events/${slug}`);
+      }, 3000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit payment');
+      setSubmitting(false);
+    }
+  };
+
+  const totalPrice = segments
+    .filter((s: any) => s.segment && !s.segment.is_free)
+    .reduce((sum: number, s: any) => sum + (parseFloat(s.price_paid) || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--text)]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-[var(--muted)]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!event || !registration || error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--text)]">
+        <div className="text-center max-w-md px-4">
+          {error && (
+            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500">
+              {error}
+            </div>
+          )}
+          <h1 className="font-serif text-2xl mb-4">Payment Required</h1>
+          <p className="text-[var(--muted)] mb-6">
+            {totalPrice > 0
+              ? `Complete your payment of BDT ${totalPrice.toLocaleString()} to confirm your registration.`
+              : 'Complete your registration by filling out the details below.'}
+          </p>
+          <button
+            onClick={() => router.push(`/events/${slug}`)}
+            className="text-[var(--accent)] hover:underline"
+          >
+            Back to Event
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const paymentInfo = PAYMENT_INFO[selectedPaymentMethod] || PAYMENT_INFO['bkash_send_money'];
+  const isBkash = selectedPaymentMethod?.startsWith('bkash');
+  const isNagad = selectedPaymentMethod?.startsWith('nagad');
+  const isSendMoney = selectedPaymentMethod?.includes('send_money');
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
       <Navbar />
 
-      <main className="max-w-[800px] mx-auto w-full px-4 sm:px-6 py-12 flex flex-col gap-8 flex-1">
-        <Link
-          href={`/events/${event.slug}`}
-          className="inline-flex items-center gap-2 text-xs font-mono text-[var(--muted)] hover:text-[var(--text)] transition-colors w-fit"
-        >
-          <ArrowLeft size={14} />
-          <span>Back to {event.title}</span>
-        </Link>
-
-        {!submitted ? (
-          <Card className="flex flex-col gap-8 p-6 sm:p-8">
-            <div className="flex flex-col gap-2 border-b border-[var(--border)] pb-6">
-              <Eyebrow>REGISTRATION FORM</Eyebrow>
-              <h1 className="font-serif text-3xl text-[var(--text)] font-normal">
-                {event.title}
-              </h1>
-              <span className="font-mono text-xs text-[var(--accent)]">
-                {event.fest?.title}
-              </span>
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-              <div className="flex flex-col gap-4">
-                <span className="font-mono text-xs uppercase text-[var(--muted)]">1. PROFILE DETAILS</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                  <Input label="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                  <Input label="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-                  <Input label="Institution" value={institution} onChange={(e) => setInstitution(e.target.value)} required />
-                </div>
-              </div>
-
-              {event.is_team_event && (
-                <div className="flex flex-col gap-4 pt-4 border-t border-[var(--border)]">
-                  <span className="font-mono text-xs uppercase text-[var(--muted)]">2. TEAM DETAILS</span>
-                  <Input
-                    label="Team Name"
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    placeholder="e.g. CodeCraft Leaders"
-                    required
-                  />
-                </div>
-              )}
-
-              {event.custom_fields && event.custom_fields.length > 0 && (
-                <div className="flex flex-col gap-4 pt-4 border-t border-[var(--border)]">
-                  <span className="font-mono text-xs uppercase text-[var(--muted)]">3. EVENT CUSTOM QUESTIONS</span>
-                  {event.custom_fields.map((field) => (
-                    <Input
-                      key={field.key}
-                      label={field.label}
-                      placeholder={field.type === 'select' ? field.options?.join(', ') : ''}
-                      onChange={(e) => setCustomAnswers({ ...customAnswers, [field.key]: e.target.value })}
-                      required={field.required}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-[var(--border)]">
-                <Button type="submit" isLoading={isSubmitting} className="w-full">
-                  Confirm Registration & Get Ticket
-                </Button>
-              </div>
-            </form>
-          </Card>
-        ) : (
-          /* SUCCESS CONFIRMATION MOMENT */
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="flex flex-col items-center gap-8 py-8"
+      <main className="max-w-4xl mx-auto w-full px-4 py-12 flex flex-col gap-8">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push(`/events/${slug}`)}
+            className="p-2 rounded-lg hover:bg-[var(--surface)] transition-colors"
           >
-            {/* Animated Brass Check */}
-            <div className="flex flex-col items-center gap-3 text-center">
-              <svg className="w-16 h-16 text-[var(--accent)]" viewBox="0 0 52 52">
-                <circle cx="26" cy="26" r="24" fill="none" stroke="currentColor" strokeWidth="2" />
-                <motion.path
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  d="M14 27l7 7 16-16"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 0.6, ease: 'easeInOut' }}
-                />
-              </svg>
-              <h1 className="font-serif text-3xl text-[var(--text)]">You're on the list.</h1>
-              <p className="text-sm text-[var(--muted)]">
-                Your ticket has been verified and registered in your digital passport.
-              </p>
-            </div>
+            <ArrowLeft size={20} className="text-[var(--muted)]" />
+          </button>
+          <div>
+            <h1 className="font-serif text-2xl">Complete Your Registration</h1>
+            <p className="text-sm text-[var(--muted)]">{event.title}</p>
+          </div>
+        </div>
 
-            {/* Ticket Card with QR */}
-            <Card className="w-full max-w-md bg-[#0D0C0A] border border-[var(--accent)]/40 p-6 flex flex-col gap-6 shadow-2xl relative overflow-hidden">
-              <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
-                <div className="flex flex-col">
-                  <span className="font-serif text-lg text-[var(--text)] font-normal">{event.title}</span>
-                  <span className="font-mono text-xs text-[var(--accent)]">TICKET CODE: {ticketCode}</span>
-                </div>
-                <Ticket size={24} className="text-[var(--accent)]" />
-              </div>
+        {error && (
+          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-sm flex items-center gap-2">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        )}
 
-              <div className="flex items-center justify-center p-4 bg-white rounded-md w-fit mx-auto">
-                <QRCodeSVG value={ticketCode} size={140} level="M" />
-              </div>
+        {success && (
+          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg text-green-500 text-sm flex items-center gap-2">
+            <Check size={16} />
+            {success}
+          </div>
+        )}
 
-              <div className="flex flex-col gap-2 font-mono text-xs text-[var(--muted)] border-t border-[var(--border)] pt-4">
-                <div className="flex justify-between">
-                  <span>NAME:</span>
-                  <span className="text-[var(--text)]">{fullName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>EVENT VENUE:</span>
-                  <span className="text-[var(--text)]">{event.venue}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>STATUS:</span>
-                  <span className="text-[var(--success)] font-medium">CONFIRMED</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left: Payment Form */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Selected Segments */}
+            <Card className="p-6">
+              <h2 className="font-medium mb-4">Selected Segments</h2>
+              <div className="flex flex-col gap-3">
+                {segments.map((seg: any, idx: number) => (
+                  <div
+                    key={seg.id}
+                    className="flex items-center justify-between p-3 bg-[var(--surface)] rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">{seg.segment?.title || `Segment ${idx + 1}`}</p>
+                      {seg.segment?.is_free && (
+                        <span className="text-xs text-green-500">Free</span>
+                      )}
+                    </div>
+                    {!seg.segment?.is_free && (
+                      <span className="font-mono font-medium">
+                        BDT {parseFloat(seg.price_paid || 0).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                <div className="flex items-center justify-between p-3 bg-[var(--accent)]/10 rounded-lg border border-[var(--accent)]/30">
+                  <span className="font-medium">Total</span>
+                  <span className="text-xl font-bold text-[var(--accent)]">
+                    BDT {totalPrice.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </Card>
 
-            <div className="flex gap-4">
-              <Link href="/passport">
-                <Button>View in Passport</Button>
-              </Link>
-              <Link href="/events">
-                <Button variant="secondary">Browse More Events</Button>
-              </Link>
-            </div>
-          </motion.div>
-        )}
+            {/* Payment Method Selection */}
+            <Card className="p-6">
+              <h2 className="font-medium mb-4">Payment Method</h2>
+              <div className="grid grid-cols-2 gap-4">
+                {/* BKash Buttons */}
+                <button
+                  onClick={() => setSelectedPaymentMethod('bkash_send_money')}
+                  className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                    selectedPaymentMethod?.startsWith('bkash')
+                      ? 'border-pink-500 bg-pink-500/10 shadow-lg shadow-pink-500/20'
+                      : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]'
+                  }`}
+                >
+                  {/* BKash Logo SVG - Pink theme */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      selectedPaymentMethod?.startsWith('bkash') ? 'bg-pink-500 text-white' : 'bg-pink-50 text-pink-600'
+                    }`}>
+                      {/* BKash Logo - B with pink circle */}
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                        <circle cx="12" cy="12" r="10" fill="currentColor" />
+                        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">B</text>
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-medium">BKash</p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {isSendMoney ? 'Send Money' : 'Pay Bill'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-[var(--muted)] mb-2">
+                    {isSendMoney
+                      ? 'Send BDT to the number below'
+                      : 'Pay using Bill number'
+                    }
+                  </p>
+                  <div className={`p-2 rounded-lg ${selectedPaymentMethod?.startsWith('bkash') ? 'bg-pink-500/20' : 'bg-[var(--surface-2)]'}`}>
+                    <p className={`text-xs font-mono ${selectedPaymentMethod?.startsWith('bkash') ? 'text-pink-600' : 'text-[var(--muted)]'}`}>
+                      {isSendMoney ? `Number: ${paymentInfo.number}` : 'Bill No: Provided after registration'}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Nagad Buttons */}
+                <button
+                  onClick={() => setSelectedPaymentMethod('nagad_send_money')}
+                  className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                    selectedPaymentMethod?.startsWith('nagad')
+                      ? 'border-orange-400 bg-orange-400/10 shadow-lg shadow-orange-400/20'
+                      : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]'
+                  }`}
+                >
+                  {/* Nagad Logo SVG - Orange/Yellow theme */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      selectedPaymentMethod?.startsWith('nagad') ? 'bg-orange-400 text-white' : 'bg-orange-50 text-orange-600'
+                    }`}>
+                      {/* Nagad Logo - N with orange circle */}
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                        <circle cx="12" cy="12" r="10" fill="currentColor" />
+                        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">N</text>
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-medium">Nagad</p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {isSendMoney ? 'Send Money' : 'Pay Bill'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-[var(--muted)] mb-2">
+                    {isSendMoney
+                      ? 'Send BDT to the number below'
+                      : 'Pay using Bill number'
+                    }
+                  </p>
+                  <div className={`p-2 rounded-lg ${selectedPaymentMethod?.startsWith('nagad') ? 'bg-orange-400/20' : 'bg-[var(--surface-2)]'}`}>
+                    <p className={`text-xs font-mono ${selectedPaymentMethod?.startsWith('nagad') ? 'text-orange-600' : 'text-[var(--muted)]'}`}>
+                      {isSendMoney ? `Number: ${paymentInfo.number}` : 'Bill No: Provided after registration'}
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-4 p-3 bg-[var(--surface-2)] rounded-lg">
+                <p className="text-xs text-[var(--muted)]">
+                  <strong className="text-[var(--text)]">Instructions:</strong> {paymentInfo.instructions}
+                </p>
+              </div>
+            </Card>
+
+            {/* Payment Details Form */}
+            <Card className="p-6">
+              <h2 className="font-medium mb-4 flex items-center gap-2">
+                <Lock size={18} className="text-[var(--accent)]" />
+                Payment Details
+              </h2>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleSubmitPayment(); }} className="space-y-4">
+                <div className="grid gap-4">
+                  <div className="relative">
+                    <label className="block text-sm font-medium mb-1.5">Transaction ID *</label>
+                    <input
+                      type="text"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                      placeholder="Enter your transaction ID"
+                      className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                      required
+                    />
+                    <p className="text-xs text-[var(--muted)] mt-1">
+                      The transaction/reference ID from your payment
+                    </p>
+                  </div>
+
+                  <div className="relative">
+                    <label className="block text-sm font-medium mb-1.5">Mobile Number Paid From *</label>
+                    <div className="relative">
+                      <Smartphone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+                      <input
+                        type="tel"
+                        value={transactionMobile}
+                        onChange={(e) => setTransactionMobile(e.target.value)}
+                        placeholder="+880 1XXX-XXXXXX"
+                        className="w-full pl-10 pr-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                        required
+                      />
+                    </div>
+                    <p className="text-xs text-[var(--muted)] mt-1">
+                      The mobile number you used for the payment
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 flex items-center gap-2">
+                      <Camera size={14} className="text-[var(--muted)]" />
+                      Payment Screenshot *
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleScreeshotUpload}
+                      className="block w-full text-sm text-[var(--muted)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--surface-2)] file:text-[var(--text)] hover:file:bg-[var(--surface)] cursor-pointer"
+                      required
+                    />
+                    <p className="text-xs text-[var(--muted)] mt-1">
+                      Upload a screenshot of your payment confirmation
+                    </p>
+                    {screenshotUrl && (
+                      <div className="mt-2 relative">
+                        <img
+                          src={screenshotUrl}
+                          alt="Payment screenshot"
+                          className="w-full max-h-48 object-contain rounded-lg border border-[var(--border)]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setScreenshotUrl('')}
+                          className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+                        >
+                          <AlertCircle size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  isLoading={submitting}
+                  disabled={!transactionId || !transactionMobile || !screenshotUrl || !selectedPaymentMethod}
+                  className="w-full gap-2"
+                >
+                  {isBkash ? (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                        <circle cx="12" cy="12" r="10" fill="currentColor" />
+                      </svg>
+                      Pay with BKash
+                    </>
+                  ) : isNagad ? (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                        <circle cx="12" cy="12" r="10" fill="currentColor" />
+                      </svg>
+                      Pay with Nagad
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={16} />
+                      Submit Payment
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-xs text-center text-[var(--muted)]">
+                  Your payment will be verified by the event organizers.
+                  {totalPrice === 0 && ' This is a free event.'}
+                </p>
+              </form>
+            </Card>
+          </div>
+
+          {/* Right: Order Summary */}
+          <div className="space-y-6">
+            <Card className="p-6">
+              <h2 className="font-medium mb-4">Order Summary</h2>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[var(--surface-2)] flex items-center justify-center">
+                    <FileText size={16} className="text-[var(--muted)]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{event.title}</p>
+                    <p className="text-xs text-[var(--muted)]">Registration ID: {registration.ticket_code.slice(0, 8)}...</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-[var(--border)] pt-3 space-y-2">
+                  {segments.map((seg: any) => (
+                    seg.segment && !seg.segment.is_free && (
+                      <div key={seg.id} className="flex items-center justify-between text-sm">
+                        <span className="text-[var(--muted)]">{seg.segment.title}</span>
+                        <span className="font-mono">BDT {parseFloat(seg.price_paid || 0).toLocaleString()}</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
+                  <span className="font-medium">Total Amount</span>
+                  <span className="text-xl font-bold text-[var(--accent)]">
+                    BDT {totalPrice.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 p-3 bg-[var(--surface-2)] rounded-lg">
+                <h3 className="text-sm font-medium mb-2">Payment Info</h3>
+                <div className="text-xs text-[var(--muted)] space-y-1">
+                  <p><strong>Pay to:</strong> {paymentInfo.number}</p>
+                  <p><strong>Method:</strong> {paymentInfo.label}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <p className="text-xs text-blue-500">
+                  <strong className="block mb-1">Need help?</strong>
+                  Contact the event organizer if you have issues with payment.
+                </p>
+              </div>
+            </Card>
+          </div>
+        </div>
       </main>
 
       <Footer />
