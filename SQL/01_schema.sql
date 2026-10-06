@@ -1,89 +1,115 @@
--- ClubOS Database Schema (Supabase Postgres)
--- Heavy-load optimized with proper indexes, constraints, and RLS
+-- ClubOS Complete Database Schema
+-- Run this in Supabase SQL Editor
 
--- Enable extensions
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Enums
-DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('participant', 'organizer', 'admin');
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+-- ============================================
+-- CUSTOM TYPES
+-- ============================================
 
-DO $$ BEGIN
-    CREATE TYPE reg_status AS ENUM ('pending', 'confirmed', 'waitlisted', 'cancelled', 'rejected', 'checked_in');
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+CREATE TYPE user_role AS ENUM ('participant', 'organizer', 'admin');
+CREATE TYPE reg_status AS ENUM ('pending', 'confirmed', 'waitlisted', 'cancelled', 'rejected', 'checked_in');
+CREATE TYPE event_category AS ENUM ('competition', 'workshop', 'seminar', 'gaming', 'robotics', 'quiz', 'social', 'other', 'science_technology', 'music_art', 'literature', 'sports', 'business', 'health', 'fashion', 'photography', 'film', 'theatre', 'dance', 'food');
+CREATE TYPE payment_method AS ENUM ('bkash_send_money', 'bkash_pay_bill', 'nagad_send_money', 'nagad_pay_bill');
+CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'verified', 'declined', 'refunded');
+CREATE TYPE segment_type AS ENUM ('workshop', 'competition', 'seminar', 'gaming', 'social', 'other');
 
-DO $$ BEGIN
-    CREATE TYPE event_category AS ENUM ('competition', 'workshop', 'seminar', 'gaming', 'robotics', 'quiz', 'social', 'other');
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+-- ============================================
+-- TABLES
+-- ============================================
 
--- 1. Profiles
-CREATE TABLE IF NOT EXISTS public.profiles (
+-- Auth users (Supabase handles this, but we reference it)
+-- profiles table
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   handle TEXT UNIQUE NOT NULL,
-  full_name TEXT NOT NULL,
+  full_name TEXT NOT NULL DEFAULT '',
   email TEXT NOT NULL,
+  password TEXT, -- For custom auth if needed
   phone TEXT,
   institution TEXT,
   student_id TEXT,
   bio TEXT,
-  interests TEXT[] DEFAULT '{}',
   avatar_url TEXT,
-  passport_no TEXT UNIQUE NOT NULL,
-  passport_public BOOLEAN DEFAULT true,
-  xp INT NOT NULL DEFAULT 0,
   role user_role NOT NULL DEFAULT 'participant',
+  passport_no TEXT UNIQUE DEFAULT uuid_generate_v4()::text,
+  passport_public BOOLEAN DEFAULT true,
+  xp INTEGER DEFAULT 0,
   onboarded BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Organizations
-CREATE TABLE IF NOT EXISTS public.organizations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- organizations table
+CREATE TABLE IF NOT EXISTS organizations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   description TEXT,
   logo_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
+  cover_url TEXT,
+  website TEXT,
+  facebook TEXT,
+  instagram TEXT,
+  twitter TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  is_verified BOOLEAN DEFAULT false,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Org Members
-CREATE TABLE IF NOT EXISTS public.org_members (
-  org_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  role TEXT NOT NULL DEFAULT 'organizer',
-  PRIMARY KEY (org_id, user_id)
+-- organization_members (organizers of an organization)
+CREATE TABLE IF NOT EXISTS organization_members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member', -- 'owner', 'admin', 'member'
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(org_id, user_id)
 );
 
--- 4. Org Follows
-CREATE TABLE IF NOT EXISTS public.org_follows (
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  org_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
-  PRIMARY KEY (user_id, org_id)
+-- category_tags (predefined event categories/tags)
+CREATE TABLE IF NOT EXISTS category_tags (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT UNIQUE NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  category_type event_category NOT NULL,
+  color TEXT DEFAULT '#C9A96E',
+  icon TEXT DEFAULT 'tag',
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Fests
-CREATE TABLE IF NOT EXISTS public.fests (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+-- fests table
+CREATE TABLE IF NOT EXISTS fests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   tagline TEXT,
   description TEXT,
   cover_url TEXT,
+  logo_url TEXT,
   start_date TIMESTAMPTZ NOT NULL,
   end_date TIMESTAMPTZ NOT NULL,
   venue TEXT,
-  checkin_token TEXT NOT NULL DEFAULT encode(gen_random_bytes(12), 'hex'),
-  is_published BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
+  venue_latitude DECIMAL(10, 8),
+  venue_longitude DECIMAL(11, 8),
+  google_maps_url TEXT,
+  is_published BOOLEAN DEFAULT false,
+  is_featured BOOLEAN DEFAULT false,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Events
-CREATE TABLE IF NOT EXISTS public.events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  fest_id UUID NOT NULL REFERENCES public.fests(id) ON DELETE CASCADE,
+-- events table
+CREATE TABLE IF NOT EXISTS events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  fest_id UUID REFERENCES fests(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   category event_category NOT NULL DEFAULT 'other',
@@ -91,294 +117,428 @@ CREATE TABLE IF NOT EXISTS public.events (
   rules TEXT,
   prizes TEXT,
   cover_url TEXT,
+  thumbnail_url TEXT,
   starts_at TIMESTAMPTZ NOT NULL,
   ends_at TIMESTAMPTZ,
   venue TEXT,
-  registration_opens_at TIMESTAMPTZ DEFAULT now(),
+  venue_latitude DECIMAL(10, 8),
+  venue_longitude DECIMAL(11, 8),
+  google_maps_url TEXT,
+  registration_opens_at TIMESTAMPTZ NOT NULL,
   registration_deadline TIMESTAMPTZ NOT NULL,
-  capacity INT,
+  capacity INTEGER,
   waitlist_enabled BOOLEAN DEFAULT true,
-  requires_approval BOOLEAN DEFAULT false,
   is_team_event BOOLEAN DEFAULT false,
-  team_min INT DEFAULT 1,
-  team_max INT DEFAULT 1,
-  fee_amount INT DEFAULT 0,
-  xp_reward INT DEFAULT 100,
-  checkin_token TEXT NOT NULL DEFAULT encode(gen_random_bytes(12), 'hex'),
-  custom_fields JSONB DEFAULT '[]',
-  tags TEXT[] DEFAULT '{}',
-  is_published BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
+  team_min INTEGER DEFAULT 1,
+  team_max INTEGER DEFAULT 1,
+  is_published BOOLEAN DEFAULT false,
+  is_featured BOOLEAN DEFAULT false,
+  xp_reward INTEGER DEFAULT 0,
+  checkin_token TEXT UNIQUE DEFAULT uuid_generate_v4()::text,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. Registrations
-CREATE TABLE IF NOT EXISTS public.registrations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  status reg_status NOT NULL DEFAULT 'confirmed',
+-- event_tags (many-to-many relationship between events and category_tags)
+CREATE TABLE IF NOT EXISTS event_tags (
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  tag_id UUID REFERENCES category_tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (event_id, tag_id)
+);
+
+-- segments table (segments within an event - like different competition categories, workshops, etc.)
+CREATE TABLE IF NOT EXISTS segments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  segment_type segment_type NOT NULL DEFAULT 'other',
+  max_participants INTEGER,
+  price DECIMAL(10, 2) DEFAULT 0,
+  is_free BOOLEAN DEFAULT true,
+  payment_method payment_method DEFAULT 'bkash_send_money',
+  payment_info TEXT, -- JSON or text with payment details (number to send to, bill number, etc.)
+  instructions TEXT,
+  rules TEXT,
+  prizes TEXT,
+  start_time TIMESTAMPTZ,
+  end_time TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- registrations table
+CREATE TABLE IF NOT EXISTS registrations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  status reg_status NOT NULL DEFAULT 'pending',
   team_name TEXT,
-  team_members JSONB DEFAULT '[]',
-  answers JSONB DEFAULT '{}',
-  ticket_code TEXT UNIQUE NOT NULL DEFAULT substr(md5(random()::text || clock_timestamp()::text), 1, 10),
+  team_members JSONB, -- Array of member names/emails for team events
+  answers JSONB, -- Custom field answers
+  ticket_code TEXT UNIQUE DEFAULT uuid_generate_v4()::text,
   checked_in_at TIMESTAMPTZ,
   checkin_method TEXT,
-  waitlist_position INT,
+  waitlist_position INTEGER,
   organizer_note TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (event_id, user_id)
+  total_price DECIMAL(10, 2) DEFAULT 0,
+  payment_status payment_status DEFAULT 'pending',
+  payment_method payment_method,
+  transaction_id TEXT,
+  transaction_mobile TEXT,
+  payment_screenshot_url TEXT,
+  is_verified BOOLEAN DEFAULT false,
+  verified_at TIMESTAMPTZ,
+  verified_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  decline_reason TEXT,
+  declined_at TIMESTAMPTZ,
+  declined_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(event_id, user_id)
 );
 
--- 8. Stamps
-CREATE TABLE IF NOT EXISTS public.stamps (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL CHECK (kind IN ('event', 'fest')),
-  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
-  fest_id UUID REFERENCES public.fests(id) ON DELETE CASCADE,
-  earned_at TIMESTAMPTZ DEFAULT now(),
-  CONSTRAINT stamp_target_check CHECK (
-    (kind = 'event' AND event_id IS NOT NULL) OR
-    (kind = 'fest' AND fest_id IS NOT NULL)
-  )
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_stamps_event ON public.stamps(user_id, event_id) WHERE kind = 'event';
-CREATE UNIQUE INDEX IF NOT EXISTS idx_stamps_fest ON public.stamps(user_id, fest_id) WHERE kind = 'fest';
-
--- 9. Badges
-CREATE TABLE IF NOT EXISTS public.badges (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  icon TEXT,
-  rings INT DEFAULT 1,
-  xp_reward INT DEFAULT 0
+-- registration_segments (which segments a participant registered for)
+CREATE TABLE IF NOT EXISTS registration_segments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  registration_id UUID REFERENCES registrations(id) ON DELETE CASCADE,
+  segment_id UUID REFERENCES segments(id) ON DELETE CASCADE,
+  price_paid DECIMAL(10, 2) DEFAULT 0,
+  status TEXT DEFAULT 'pending', -- 'pending', 'selected', 'paid'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(registration_id, segment_id)
 );
 
--- 10. User Badges
-CREATE TABLE IF NOT EXISTS public.user_badges (
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  badge_id TEXT REFERENCES public.badges(id) ON DELETE CASCADE,
-  fest_id UUID REFERENCES public.fests(id) ON DELETE CASCADE,
-  earned_at TIMESTAMPTZ DEFAULT now(),
-  featured BOOLEAN DEFAULT false,
-  PRIMARY KEY (user_id, badge_id, fest_id)
-);
-
--- 11. XP Ledger
-CREATE TABLE IF NOT EXISTS public.xp_ledger (
-  id BIGSERIAL PRIMARY KEY,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  amount INT NOT NULL,
-  reason TEXT,
-  ref_id UUID,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 12. Connections
-CREATE TABLE IF NOT EXISTS public.connections (
-  user_a UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  user_b UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  fest_id UUID REFERENCES public.fests(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  PRIMARY KEY (user_a, user_b),
-  CHECK (user_a < user_b)
-);
-
--- 13. Notifications
-CREATE TABLE IF NOT EXISTS public.notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  type TEXT,
+-- notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
   title TEXT NOT NULL,
   body TEXT,
   link TEXT,
   read BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 14. Announcements
-CREATE TABLE IF NOT EXISTS public.announcements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  fest_id UUID REFERENCES public.fests(id) ON DELETE CASCADE,
-  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
+-- email_notifications (tracking sent emails)
+CREATE TABLE IF NOT EXISTS email_notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  event_id UUID REFERENCES events(id) ON DELETE SET NULL,
+  registration_id UUID REFERENCES registrations(id) ON DELETE SET NULL,
+  email_type TEXT NOT NULL, -- 'registration_confirmation', 'payment_declined', 'payment_verified', etc.
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  status TEXT DEFAULT 'sent' -- 'sent', 'failed', 'pending'
+);
+
+-- activity_log table
+CREATE TABLE IF NOT EXISTS activity_log (
+  id SERIAL PRIMARY KEY,
+  event_id UUID REFERENCES events(id) ON DELETE SET NULL,
+  actor_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  meta JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- announcements table
+CREATE TABLE IF NOT EXISTS announcements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  fest_id UUID REFERENCES fests(id) ON DELETE CASCADE,
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   body TEXT NOT NULL,
-  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 15. Bookmarks
-CREATE TABLE IF NOT EXISTS public.bookmarks (
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
-  PRIMARY KEY (user_id, event_id)
-);
+-- ============================================
+-- SEED DATA - Category Tags
+-- ============================================
 
--- 16. Feedback
-CREATE TABLE IF NOT EXISTS public.feedback (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  rating INT CHECK (rating BETWEEN 1 AND 5),
-  comment TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (event_id, user_id)
-);
+INSERT INTO category_tags (name, slug, category_type, color, icon, description) VALUES
+-- Science & Technology
+('Artificial Intelligence', 'ai', 'science_technology', '#6366F1', 'brain', 'AI, machine learning, and neural networks'),
+('Robotics', 'robotics', 'science_technology', '#8B5CF6', 'cpu', 'Robotics, drones, and automation'),
+('Web Development', 'web-dev', 'science_technology', '#3B82F6', 'code', 'HTML, CSS, JavaScript, frameworks'),
+('App Development', 'app-dev', 'science_technology', '#06B6D4', 'smartphone', 'Mobile app development iOS/Android'),
+('Cybersecurity', 'cybersecurity', 'science_technology', '#EF4444', 'shield', 'Security, ethical hacking, cryptography'),
+('Data Science', 'data-science', 'science_technology', '#10B981', 'chart-bar', 'Data analysis, visualization, big data'),
+('Blockchain', 'blockchain', 'science_technology', '#F59E0B', 'link', 'Crypto, Web3, smart contracts'),
+('IoT', 'iot', 'science_technology', '#84CC16', 'wifi', 'Internet of Things, sensors, embedded systems'),
+('Cloud Computing', 'cloud', 'science_technology', '#64748B', 'cloud', 'AWS, Azure, GCP, serverless'),
+('Game Development', 'game-dev', 'science_technology', '#EC4899', 'gamepad-2', 'Game design, Unity, Unreal Engine'),
 
--- 17. Activity Log
-CREATE TABLE IF NOT EXISTS public.activity_log (
-  id BIGSERIAL PRIMARY KEY,
-  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
-  actor_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  action TEXT NOT NULL,
-  meta JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+-- Music & Art
+('Music', 'music', 'music_art', '#F43F5E', 'music', 'Singing, instruments, music production'),
+('Dance', 'dance', 'music_art', '#FB923C', 'movements', 'Various dance forms and choreography'),
+('Painting', 'painting', 'music_art', '#A855F7', 'paintbrush', 'Canvas, watercolor, oil painting'),
+('Digital Art', 'digital-art', 'music_art', '#06B6D4', 'palette', 'Digital illustration, graphic design'),
+('Photography', 'photography', 'music_art', '#EAB308', 'camera', 'Photo shoots, editing, cinematography'),
+('Drama & Theatre', 'theatre', 'music_art', '#8B5CF6', 'theater', 'Acting, stage performances, plays'),
+('Creative Writing', 'writing', 'music_art', '#3B82F6', 'pen-line', 'Poetry, storytelling, scripts'),
+('Fashion', 'fashion', 'music_art', '#EC4899', 'shirt', 'Design, styling, textile arts'),
 
--- Indexing for Heavy Load
-CREATE INDEX IF NOT EXISTS idx_events_fest ON public.events(fest_id);
-CREATE INDEX IF NOT EXISTS idx_events_category ON public.events(category);
-CREATE INDEX IF NOT EXISTS idx_events_dates ON public.events(starts_at, ends_at);
-CREATE INDEX IF NOT EXISTS idx_events_deadline ON public.events(registration_deadline);
-CREATE INDEX IF NOT EXISTS idx_events_published ON public.events(is_published);
+-- Sports & Fitness
+('Football', 'football', 'sports', '#22C55E', 'football', 'Soccer competitions and matches'),
+('Basketball', 'basketball', 'sports', '#16A34A', 'basketball', 'Basketball tournaments'),
+('Cricket', 'cricket', 'sports', '#15803D', 'cricket', 'Cricket matches and tournaments'),
+('Volleyball', 'volleyball', 'sports', '#4ADE80', 'volleyball', 'Volleyball competitions'),
+('Badminton', 'badminton', 'sports', '#A3E635', 'target', 'Badminton tournaments'),
+('Chess', 'chess', 'sports', '#FBBF24', 'chess-knight', 'Chess competitions'),
+('Swimming', 'swimming', 'sports', '#0EA5E9', 'waves', 'Swimming competitions'),
+('Martial Arts', 'martial-arts', 'sports', '#EF4444', 'fist', 'Karate, taekwondo, self-defense'),
 
-CREATE INDEX IF NOT EXISTS idx_reg_event_status ON public.registrations(event_id, status);
-CREATE INDEX IF NOT EXISTS idx_reg_user ON public.registrations(user_id);
-CREATE INDEX IF NOT EXISTS idx_reg_ticket ON public.registrations(ticket_code);
-CREATE INDEX IF NOT EXISTS idx_reg_waitlist ON public.registrations(event_id, waitlist_position) WHERE status = 'waitlisted';
+-- Business & Entrepreneurship
+('Business Plan', 'business-plan', 'business', '#F97316', 'briefcase', 'Startup pitch, business proposals'),
+('Case Competition', 'case-comp', 'business', '#EA580C', 'clipboard-list', 'Case study analysis and solutions'),
+('Hackathon', 'hackathon', 'business', '#8B5CF6', 'zap', 'Coding marathons, innovation challenges'),
+('Debate', 'debate', 'business', '#3B82F6', 'mic', 'Debate competitions, public speaking'),
+('Quiz', 'quiz', 'business', '#10B981', 'help-circle', 'General knowledge, trivia competitions'),
 
-CREATE INDEX IF NOT EXISTS idx_xp_ledger_user ON public.xp_ledger(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON public.notifications(user_id, read) WHERE read = false;
-CREATE INDEX IF NOT EXISTS idx_activity_event ON public.activity_log(event_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_profiles_handle ON public.profiles(handle);
-CREATE INDEX IF NOT EXISTS idx_profiles_xp ON public.profiles(xp DESC);
+-- Health & Wellness
+('Yoga', 'yoga', 'health', '#84CC16', 'lotus', 'Yoga sessions, meditation'),
+('Fitness', 'fitness', 'health', '#EF4444', 'heart-pulse', 'Fitness challenges, bodybuilding'),
+('Mental Health', 'mental-health', 'health', '#6366F1', 'brain-circuit', 'Awareness, counseling sessions'),
 
--- View: Event with counts
-CREATE OR REPLACE VIEW public.event_with_counts AS
-SELECT 
-  e.*,
-  COALESCE(r.registered_count, 0)::INT as registered_count,
-  COALESCE(r.confirmed_count, 0)::INT as confirmed_count,
-  COALESCE(r.waitlist_count, 0)::INT as waitlist_count,
-  COALESCE(r.checked_in_count, 0)::INT as checked_in_count,
-  CASE 
-    WHEN e.capacity IS NULL THEN NULL 
-    ELSE GREATEST(0, e.capacity - COALESCE(r.active_count, 0))::INT 
-  END as spots_left,
-  (
-    e.is_published = true AND 
-    now() >= e.registration_opens_at AND 
-    now() <= e.registration_deadline AND 
-    (e.capacity IS NULL OR COALESCE(r.active_count, 0) < e.capacity OR e.waitlist_enabled = true)
-  ) as is_open,
-  (
-    e.capacity IS NOT NULL AND COALESCE(r.active_count, 0) >= e.capacity
-  ) as is_full,
-  (
-    e.registration_deadline - now() <= INTERVAL '48 hours' AND e.registration_deadline > now()
-  ) as closing_soon
-FROM public.events e
-LEFT JOIN (
-  SELECT 
-    event_id,
-    COUNT(*) FILTER (WHERE status IN ('confirmed', 'checked_in', 'pending')) as active_count,
-    COUNT(*) FILTER (WHERE status IN ('confirmed', 'checked_in', 'pending', 'waitlisted')) as registered_count,
-    COUNT(*) FILTER (WHERE status = 'confirmed') as confirmed_count,
-    COUNT(*) FILTER (WHERE status = 'waitlisted') as waitlist_count,
-    COUNT(*) FILTER (WHERE status = 'checked_in') as checked_in_count
-  FROM public.registrations
-  GROUP BY event_id
-) r ON e.id = r.event_id;
+-- Food & Culinary
+('Cooking', 'cooking', 'food', '#F97316', 'chef-hat', 'Cooking competitions, baking'),
+('Food Stalls', 'food-stalls', 'food', '#EAB308', 'coffee', 'Food kiosks, culinary display'),
 
--- View: Public Passports (Privacy aware)
-CREATE OR REPLACE VIEW public.public_passports AS
-SELECT 
-  id,
-  handle,
-  CASE WHEN passport_public THEN full_name ELSE 'Anonymous Participant' END as full_name,
-  CASE WHEN passport_public THEN avatar_url ELSE NULL END as avatar_url,
-  CASE WHEN passport_public THEN institution ELSE 'Private Institution' END as institution,
-  CASE WHEN passport_public THEN bio ELSE NULL END as bio,
-  passport_no,
-  passport_public,
-  xp,
-  FLOOR(SQRT(xp::numeric / 50.0)) + 1 as level,
-  created_at
-FROM public.profiles;
+-- Technology Workshops
+('3D Printing', '3d-printing', 'science_technology', '#64748B', 'box', '3D modeling and printing'),
+('Arduino', 'arduino', 'science_technology', '#22C55E', 'cpu', 'Arduino projects and workshops'),
+('Raspberry Pi', 'raspberry-pi', 'science_technology', '#DC2626', 'memory-stick', 'RPi projects and IoT'),
+('Drone Racing', 'drone-racing', 'science_technology', '#A855F7', 'rocket', 'Drone assembly and racing'),
+('VR/AR', 'vr-ar', 'science_technology', '#06B6D4', 'eye', 'Virtual and augmented reality experiences')
+ON CONFLICT (slug) DO NOTHING;
 
--- Enable Row Level Security (RLS) on all tables
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.org_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.org_follows ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.fests ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.registrations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.stamps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.badges ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_badges ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.xp_ledger ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.connections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.bookmarks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
+-- ============================================
+-- INDEXES
+-- ============================================
 
--- Base RLS Policies
--- Profiles: read public, update own
-CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_handle ON profiles(handle);
+CREATE INDEX IF NOT EXISTS idx_organizations_slug ON organizations(slug);
+CREATE INDEX IF NOT EXISTS idx_fests_org_id ON fests(org_id);
+CREATE INDEX IF NOT EXISTS idx_fests_slug ON fests(slug);
+CREATE INDEX IF NOT EXISTS idx_fests_dates ON fests(start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_events_fest_id ON events(fest_id);
+CREATE INDEX IF NOT EXISTS idx_events_slug ON events(slug);
+CREATE INDEX IF NOT EXISTS idx_events_dates ON events(starts_at, ends_at);
+CREATE INDEX IF NOT EXISTS idx_events_category ON events(category);
+CREATE INDEX IF NOT EXISTS idx_events_registration ON events(registration_opens_at, registration_deadline);
+CREATE INDEX IF NOT EXISTS idx_segments_event_id ON segments(event_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_event_id ON registrations(event_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_user_id ON registrations(user_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_status ON registrations(status);
+CREATE INDEX IF NOT EXISTS idx_registration_segments_registration_id ON registration_segments(registration_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 
--- Organizations: read public, org members write
-CREATE POLICY "Organizations are viewable by everyone" ON public.organizations FOR SELECT USING (true);
+-- ============================================
+-- RLS POLICIES
+-- ============================================
 
--- Fests: read published fests, org members manage
-CREATE POLICY "Published fests are viewable by everyone" ON public.fests FOR SELECT USING (is_published = true OR auth.uid() IN (SELECT user_id FROM public.org_members WHERE org_id = fests.org_id));
+-- Enable RLS
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE category_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE segments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registration_segments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 
--- Events: read published events, org members manage
-CREATE POLICY "Published events are viewable by everyone" ON public.events FOR SELECT USING (is_published = true OR auth.uid() IN (SELECT user_id FROM public.org_members WHERE org_id IN (SELECT org_id FROM public.fests WHERE id = events.fest_id)));
+-- Profiles: Users can read/update their own profile
+CREATE POLICY "Profiles are viewable by authenticated users" ON profiles
+  FOR SELECT TO authenticated USING (true);
 
--- Registrations: participants view own, org members view event registrations
-CREATE POLICY "Users view own registrations" ON public.registrations FOR SELECT USING (auth.uid() = user_id OR auth.uid() IN (
-  SELECT om.user_id FROM public.org_members om 
-  JOIN public.fests f ON f.org_id = om.org_id 
-  JOIN public.events e ON e.fest_id = f.id 
-  WHERE e.id = registrations.event_id
-));
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE TO authenticated USING (auth.uid() = id);
 
--- Stamps: view own
-CREATE POLICY "Users view own stamps" ON public.stamps FOR SELECT USING (auth.uid() = user_id);
+-- Organizations: Public read, organizers can manage
+CREATE POLICY "Organizations are viewable by everyone" ON organizations
+  FOR SELECT TO authenticated USING (true);
 
--- Badges & User Badges: view public
-CREATE POLICY "Badges are viewable by everyone" ON public.badges FOR SELECT USING (true);
-CREATE POLICY "User badges are viewable by everyone" ON public.user_badges FOR SELECT USING (true);
+CREATE POLICY "Organizers can insert organizations" ON organizations
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() = created_by);
 
--- XP Ledger: view own
-CREATE POLICY "Users view own xp ledger" ON public.xp_ledger FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Organizers can update own organizations" ON organizations
+  FOR UPDATE TO authenticated USING (auth.uid() = created_by);
 
--- Connections: view own
-CREATE POLICY "Users view own connections" ON public.connections FOR SELECT USING (auth.uid() = user_a OR auth.uid() = user_b);
+-- Organization Members
+CREATE POLICY "Members visible to org members" ON organization_members
+  FOR SELECT TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM organization_members om
+      WHERE om.org_id = organization_members.org_id
+      AND om.user_id = auth.uid()
+    )
+  );
 
--- Notifications: view & update own
-CREATE POLICY "Users view own notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users update own notifications" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can join organizations" ON organization_members
+  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
--- Announcements: view for published fests/events
-CREATE POLICY "Announcements are viewable by everyone" ON public.announcements FOR SELECT USING (true);
+-- Category Tags: Public read
+CREATE POLICY "Category tags are viewable by everyone" ON category_tags
+  FOR SELECT TO authenticated USING (true);
 
--- Bookmarks: manage own
-CREATE POLICY "Users manage own bookmarks" ON public.bookmarks FOR ALL USING (auth.uid() = user_id);
+-- Fests: Public read when published
+CREATE POLICY "Published fests are viewable by everyone" ON fests
+  FOR SELECT TO authenticated USING (is_published = true OR created_by = auth.uid());
 
--- Feedback: view for event, create own
-CREATE POLICY "Feedback is viewable by everyone" ON public.feedback FOR SELECT USING (true);
-CREATE POLICY "Users create own feedback" ON public.feedback FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Organizers can manage own fests" ON fests
+  FOR ALL TO authenticated USING (
+    created_by = auth.uid() OR
+    EXISTS (
+      SELECT 1 FROM organization_members om
+      WHERE om.org_id = fests.org_id
+      AND om.user_id = auth.uid()
+      AND om.role IN ('owner', 'admin')
+    )
+  );
 
--- Activity Log: view by org members
-CREATE POLICY "Activity log viewable by event organizers" ON public.activity_log FOR SELECT USING (auth.uid() IN (
-  SELECT om.user_id FROM public.org_members om 
-  JOIN public.fests f ON f.org_id = om.org_id 
-  JOIN public.events e ON e.fest_id = f.id 
-  WHERE e.id = activity_log.event_id
-));
+-- Events: Public read when published
+CREATE POLICY "Published events are viewable by everyone" ON events
+  FOR SELECT TO authenticated USING (
+    is_published = true OR
+    created_by = auth.uid() OR
+    EXISTS (
+      SELECT 1 FROM fests f
+      WHERE f.id = events.fest_id
+      AND (f.is_published = true OR f.created_by = auth.uid())
+    )
+  );
+
+CREATE POLICY "Organizers can manage own events" ON events
+  FOR ALL TO authenticated USING (
+    created_by = auth.uid() OR
+    EXISTS (
+      SELECT 1 FROM fests f
+      JOIN organization_members om ON om.org_id = f.org_id
+      WHERE f.id = events.fest_id
+      AND om.user_id = auth.uid()
+      AND om.role IN ('owner', 'admin')
+    )
+  );
+
+-- Segments: Visible to event participants
+CREATE POLICY "Segments visible to event participants" ON segments
+  FOR SELECT TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM events e
+      WHERE e.id = segments.event_id
+      AND (e.is_published = true OR e.created_by = auth.uid())
+    )
+  );
+
+CREATE POLICY "Organizers can manage segments" ON segments
+  FOR ALL TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM events e
+      WHERE e.id = segments.event_id
+      AND e.created_by = auth.uid()
+    )
+  );
+
+-- Registrations: Users can see own, organizers can see event registrations
+CREATE POLICY "Users can view own registrations" ON registrations
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+CREATE POLICY "Event organizers can view registrations" ON registrations
+  FOR SELECT TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM events e
+      WHERE e.id = registrations.event_id
+      AND e.created_by = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can create registrations" ON registrations
+  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own registrations" ON registrations
+  FOR UPDATE TO authenticated USING (user_id = auth.uid());
+
+-- Registration Segments
+CREATE POLICY "Users can view own registration segments" ON registration_segments
+  FOR SELECT TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM registrations r
+      WHERE r.id = registration_segments.registration_id
+      AND r.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can manage own registration segments" ON registration_segments
+  FOR ALL TO authenticated USING (
+    EXISTS (
+      SELECT 1 FROM registrations r
+      WHERE r.id = registration_segments.registration_id
+      AND r.user_id = auth.uid()
+    )
+  );
+
+-- Notifications: Users see own
+CREATE POLICY "Users see own notifications" ON notifications
+  FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+CREATE POLICY "Users can create notifications" ON notifications
+  FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own notifications" ON notifications
+  FOR UPDATE TO authenticated USING (user_id = auth.uid());
+
+-- Activity Log: Public read for event activity
+CREATE POLICY "Activity log viewable by authenticated" ON activity_log
+  FOR SELECT TO authenticated USING (true);
+
+-- Announcements: Public read when published
+CREATE POLICY "Announcements viewable by authenticated" ON announcements
+  FOR SELECT TO authenticated USING (true);
+
+-- ============================================
+-- FUNCTIONS
+-- ============================================
+
+-- Function to create profile on user signup
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, handle, full_name, email, role, avatar_url)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'handle', split_part(NEW.email, '@', 1)),
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'role', 'participant')::user_role,
+    NEW.raw_user_meta_data->>'avatar_url'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger for new user signup
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- ============================================
+-- SAMPLE DATA
+-- ============================================
+
+-- Sample organization (will be created by organizers during signup)
+-- Sample events, segments, etc. will be created by organizers

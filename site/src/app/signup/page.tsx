@@ -5,6 +5,17 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User, Building2, Check, Sparkles } from 'lucide-react';
 
+const FRIENDLY_AUTH_ERRORS: Record<string, string> = {
+  'User already registered': 'An account with this email already exists. Try signing in instead.',
+  'Email address is invalid': 'That email address looks invalid. Please check and try again.',
+  'Password should be at least 6 characters': 'Password must be at least 6 characters.',
+  'Email rate limit exceeded': 'Too many attempts. Please wait a minute and try again.',
+};
+
+function friendlyAuthError(message: string): string {
+  return FRIENDLY_AUTH_ERRORS[message] || message;
+}
+
 export default function SignUpPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -57,14 +68,24 @@ export default function SignUpPage() {
       });
 
       if (authErr) {
-        setError(authErr.message);
+        setError(friendlyAuthError(authErr.message));
         setLoading(false);
         return;
       }
 
       if (data?.user) {
-        // Create profile with selected role
-        const handle = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '_');
+        // Build a unique handle: email prefix, with a numeric suffix on collision
+        const baseHandle = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 24) || 'user';
+        let handle = baseHandle;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: existing } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('handle', handle)
+            .maybeSingle();
+          if (!existing) break;
+          handle = `${baseHandle}${Math.floor(Math.random() * 9000 + 1000)}`;
+        }
 
         const { error: profileErr } = await supabase
           .from('profiles')
@@ -121,7 +142,7 @@ export default function SignUpPage() {
         });
 
         if (signInErr) {
-          setError(signInErr.message);
+          setError(friendlyAuthError(signInErr.message));
           setLoading(false);
           return;
         }

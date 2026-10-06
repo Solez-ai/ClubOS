@@ -71,6 +71,7 @@
    - `SQL/01_schema.sql` (Tables, Indexes, Views & RLS)
    - `SQL/02_functions.sql` (RPC Functions & Triggers)
    - `SQL/03_seed.sql` (Pre-seeded Sample Data)
+   - `SQL/04_notifications.sql` (In-app notifications, email audit table, payment columns, storage bucket)
 
 5. **Start Development Server:**
    ```bash
@@ -80,25 +81,32 @@
 
 ---
 
-## 5. Demo Credentials (For Contest Judges)
+## 5. Trying ClubOS
 
-1-Click Demo Sign In buttons are available on the `/login` page:
+The platform runs entirely on real accounts — sign up through the **Sign Up** page and choose a role:
 
-- **Demo Participant:**
-  - **Email:** `participant@demo.clubos.dev`
-  - **Password:** `Demo@12345`
-  - **User:** Tanvir Hossain (`@tanvir_hossain`) — Pre-populated with 480 XP, 2 stamps, 2 badges, 2 connections, confirmed ticket for the live AI Web Dev Contest, and waitlisted for Robotics.
+- **Participant** — browse fests and events, register (free or paid via BKash/Nagad), collect stamps, earn XP, and build your passport.
+- **Organizer** — create your organization, fests, and events; manage participants; verify or decline payments; and run live check-in with rotating venue QR codes.
 
-- **Demo Organizer:**
-  - **Email:** `organizer@demo.clubos.dev`
-  - **Password:** `Demo@12345`
-  - **User:** DRMC IT Lead Organizer — Access to Organizer Portal, Live Projector QR, and Participants Table.
+**Judges / reviewers:** after signing up as an organizer, create a fest and an event with segments to see the full registration → payment → verification workflow end to end. A demo dataset (DRMC IT Club with three fests and sample events) is available when you run `SQL/03_seed.sql`.
+
+> Note: the seed file creates profile/organization rows but does not create Supabase Auth users. After seeding, sign up normally with any real email to use the platform.
 
 ---
 
 ## 6. Vercel Deployment Settings
 
 When deploying to Vercel, add the environment variables from `.env.local` in Project Settings -> Environment Variables.
+
+### Optional: Real email delivery (Resend)
+
+By default, registration/verification emails are recorded but not delivered. To enable real delivery:
+
+1. Create an API key at [resend.com/api-keys](https://resend.com/api-keys).
+2. Add `RESEND_API_KEY=re_xxx` to your environment (Vercel Project Settings or `.env.local`).
+3. Optionally set `EMAIL_FROM_ADDRESS` (e.g. `ClubOS <noreply@yourdomain.com>`) once your domain is verified in Resend. The default uses Resend's `onboarding@resend.dev` test sender.
+
+Emails are sent server-side through `/api/notifications/email`; nothing is exposed to the browser.
 
 ---
 

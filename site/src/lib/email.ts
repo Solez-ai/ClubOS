@@ -1,25 +1,66 @@
+// ClubOS transactional email layer.
+// Sends via the Resend REST API (no SDK dependency) when RESEND_API_KEY is configured.
+// Every send is also recorded in the `email_notifications` table for the organizer audit trail.
+
 import { createClient } from '@supabase/supabase-js';
 
-// Create admin client for server-side operations
-function getAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xqekafdcxzipxmbybxmn.supabase.co';
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'ClubOS <onboarding@resend.dev>';
 
-  if (!serviceKey) {
-    console.warn('SUPABASE_SERVICE_ROLE_KEY not configured - email sending disabled');
-    return null;
-  }
-
-  return createClient(supabaseUrl, serviceKey);
+export interface SegmentData {
+  title: string;
+  isFree: boolean;
+  price: number;
 }
 
-// Email templates
-const EMAILS = {
-  registrationConfirmation: {
-    subject: (eventTitle: string, festTitle: string) =>
-      `Registration Confirmed: ${eventTitle}${festTitle ? ` at ${festTitle}` : ''}`,
-    body: (data: RegistrationEmailData) => `
-Welcome to ClubOS!
+export interface RegistrationEmailData {
+  eventTitle: string;
+  festTitle?: string;
+  organizationName?: string;
+  ticketCode: string;
+  registrationDate: string;
+  segments: SegmentData[];
+  totalPrice: number;
+  paymentMethod?: string;
+}
+
+export interface DeclineEmailData {
+  eventTitle: string;
+  ticketCode: string;
+  declineReason: string;
+}
+
+export interface VerifyEmailData {
+  eventTitle: string;
+  festTitle?: string;
+  ticketCode: string;
+  eventDate: string;
+  venue: string;
+  eventTime: string;
+}
+
+interface Template {
+  subject: string;
+  text: string;
+}
+
+function renderRegistrationConfirmation(data: RegistrationEmailData): Template {
+  const segmentsList = data.segments.length
+    ? data.segments
+        .map((s) => `  • ${s.title} — ${s.isFree ? 'Free' : `BDT ${s.price.toLocaleString()}`}`)
+        .join('\n')
+    : '  • (none)';
+
+  const paymentSection =
+    data.totalPrice > 0
+      ? `Payment Required: BDT ${data.totalPrice.toLocaleString()}
+Payment Method: ${data.paymentMethod || 'N/A'}
+
+Please complete your payment to confirm your registration.`
+      : `This registration is free. No payment required.`;
+
+  return {
+    subject: `Registration Confirmed: ${data.eventTitle}${data.festTitle ? ` at ${data.festTitle}` : ''}`,
+    text: `Welcome to ClubOS!
 
 Your registration for the event has been received. Here are your registration details:
 
@@ -31,58 +72,27 @@ Your Ticket ID: ${data.ticketCode}
 Registration Date: ${data.registrationDate}
 
 Segments You Registered For:
-${data.segments.map((s: SegmentData) => `
-  • ${s.title} - ${s.isFree ? 'Free' : `BDT ${s.price.toLocaleString()}`}
-`).join('\n')}
+${segmentsList}
 
-${data.totalPrice > 0 ? `
-Payment Required: BDT ${data.totalPrice.toLocaleString()}
-Payment Method: ${data.paymentMethod}
-
-Please complete your payment to confirm your registration.
-` : `
-This is a free event. No payment required.
-`}
+${paymentSection}
 
 What's Next?
-1. If payment is required, complete the payment using the method provided
-2. Wait for organizer verification (for paid events)
-3. Check your email for final confirmation
+1. If payment is required, complete the payment using the method provided on the event page.
+2. Wait for organizer verification (for paid events).
+3. Check your email for the final confirmation.
 
 Need Help?
 Contact the event organizer or visit the event page for more information.
 
 Thank you for registering!
-ClubOS Team
-    `,
-  },
+ClubOS Team`,
+  };
+}
 
-  paymentDeclined: {
-    subject: (eventTitle: string) =>
-      `Registration Declined: ${eventTitle}`,
-    body: (data: DeclineEmailData) => `
-We're sorry to inform you that your registration for the event has been declined.
-
-Event: ${data.eventTitle}
-
-Reason for Decline:
-${data.declineReason}
-
-If you believe this was a mistake, please contact the event organizer for clarification.
-
-Your Ticket ID: ${data.ticketCode}
-
-You can view the event details at our website or contact the organizer directly.
-
-Thank you for your interest in ClubOS events.
-    `,
-  },
-
-  paymentVerified: {
-    subject: (eventTitle: string) =>
-      `Payment Verified: ${eventTitle}`,
-    body: (data: VerifyEmailData) => `
-Great news! Your payment has been verified and your registration is confirmed.
+function renderPaymentVerified(data: VerifyEmailData): Template {
+  return {
+    subject: `Payment Verified: ${data.eventTitle}`,
+    text: `Great news! Your payment has been verified and your registration is confirmed.
 
 Event: ${data.eventTitle}
 Fest: ${data.festTitle || 'N/A'}
@@ -98,195 +108,142 @@ Time: ${data.eventTime}
 
 We look forward to seeing you there!
 
-ClubOS Team
-    `,
-  },
-};
-
-interface RegistrationEmailData {
-  eventTitle: string;
-  festTitle?: string;
-  organizationName?: string;
-  ticketCode: string;
-  registrationDate: string;
-  segments: SegmentData[];
-  totalPrice: number;
-  paymentMethod?: string;
+ClubOS Team`,
+  };
 }
 
-interface SegmentData {
-  title: string;
-  isFree: boolean;
-  price: number;
+function renderPaymentDeclined(data: DeclineEmailData): Template {
+  return {
+    subject: `Registration Declined: ${data.eventTitle}`,
+    text: `We're sorry to inform you that your registration for the event has been declined.
+
+Event: ${data.eventTitle}
+
+Reason for Decline:
+${data.declineReason}
+
+If you believe this was a mistake, please contact the event organizer for clarification.
+
+Your Ticket ID: ${data.ticketCode}
+
+You can register again for future events on ClubOS.
+
+ClubOS Team`,
+  };
 }
 
-interface DeclineEmailData {
-  eventTitle: string;
-  ticketCode: string;
-  declineReason: string;
-}
-
-interface VerifyEmailData {
-  eventTitle: string;
-  festTitle?: string;
-  ticketCode: string;
-  eventDate: string;
-  venue: string;
-  eventTime: string;
-}
-
-// Send email using Supabase Edge Function or external service
-export async function sendEmail(to: string | undefined, subject: string | undefined, body: string | undefined): Promise<boolean> {
+/**
+ * Low-level sender. Uses Resend when RESEND_API_KEY is present;
+ * otherwise falls back to console logging (useful in local dev / preview).
+ */
+export async function sendEmail(
+  to: string | undefined,
+  subject: string | undefined,
+  body: string | undefined
+): Promise<boolean> {
   if (!to || !subject || !body) return false;
-  
-  // Log for development/demo purposes
-  console.log(`[EMAIL] To: ${to}`);
-  console.log(`[EMAIL] Subject: ${subject}`);
-  console.log(`[EMAIL] Body:\n${body}`);
 
-  // Return success for demo
-  return true;
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.warn(`[EMAIL] RESEND_API_KEY not set — email not sent. To: ${to} | Subject: ${subject}`);
+    return false;
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: [to],
+        subject,
+        text: body,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[EMAIL] Resend API error ${res.status}: ${errText}`);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[EMAIL] send failed:', err);
+    return false;
+  }
 }
 
-// Send registration confirmation email
+export function getAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceKey) return null;
+
+  return createClient(supabaseUrl, serviceKey);
+}
+
+async function recordEmailLog(params: {
+  userId?: string;
+  eventId?: string;
+  registrationId?: string;
+  emailType: string;
+  subject: string;
+  body: string;
+  sent: boolean;
+}) {
+  const admin = getAdminClient();
+  if (!admin) return; // table/log audit is best-effort
+
+  try {
+    await admin.from('email_notifications').insert({
+      user_id: params.userId ?? null,
+      event_id: params.eventId ?? null,
+      registration_id: params.registrationId ?? null,
+      email_type: params.emailType,
+      subject: params.subject,
+      body: params.body,
+      sent_at: new Date().toISOString(),
+      status: params.sent ? 'sent' : 'skipped',
+    });
+  } catch (err) {
+    // Best-effort audit log; never break the main flow because of it.
+    console.warn('[EMAIL] failed to record email_notifications row:', err);
+  }
+}
+
+// ─── Public helpers ────────────────────────────────────────────────────────────
+
 export async function sendRegistrationConfirmation(
   email: string,
   data: RegistrationEmailData
 ): Promise<boolean> {
-  const subject = EMAILS.registrationConfirmation.subject(data.eventTitle, data.festTitle || '');
-  const body = EMAILS.registrationConfirmation.body(data);
-  return await sendEmail(email, subject, body);
+  const { subject, text } = renderRegistrationConfirmation(data);
+  const sent = await sendEmail(email, subject, text);
+  await recordEmailLog({ emailType: 'registration_confirmation', subject, body: text, sent });
+  return sent;
 }
 
-// Send payment decline notification
-export async function sendPaymentDecline(
-  email: string,
-  data: DeclineEmailData
-): Promise<boolean> {
-  const subject = EMAILS.paymentDeclined.subject(data.eventTitle);
-  const body = EMAILS.paymentDeclined.body(data);
-  return await sendEmail(email, subject, body);
-}
-
-// Send payment verified notification
 export async function sendPaymentVerified(
   email: string,
   data: VerifyEmailData
 ): Promise<boolean> {
-  const subject = EMAILS.paymentVerified.subject(data.eventTitle);
-  const body = EMAILS.paymentVerified.body(data);
-  return await sendEmail(email, subject, body);
+  const { subject, text } = renderPaymentVerified(data);
+  const sent = await sendEmail(email, subject, text);
+  await recordEmailLog({ emailType: 'payment_verified', subject, body: text, sent });
+  return sent;
 }
 
-// Send email when a registration is created (called from the registration page)
-export async function notifyRegistrationCreated(registration: any, event: any, profile: any): Promise<void> {
-  if (!profile?.email) return;
-
-  const segments = registration.registration_segments || [];
-
-  const emailData: RegistrationEmailData = {
-    eventTitle: event.title,
-    festTitle: event.fest?.title,
-    organizationName: event.fest?.org?.name,
-    ticketCode: registration.ticket_code,
-    registrationDate: new Date().toLocaleString('en-BD'),
-    segments: segments.map((s: any) => ({
-      title: s.segment?.title || 'Segment',
-      isFree: s.segment?.is_free ?? true,
-      price: s.segment?.price || 0,
-    })),
-    totalPrice: registration.total_price || 0,
-    paymentMethod: registration.payment_method,
-  };
-
-  const subject = EMAILS.registrationConfirmation.subject(event.title, event.fest?.title || '');
-  const body = EMAILS.registrationConfirmation.body(emailData);
-
-  await sendRegistrationConfirmation(profile.email || '', emailData);
-
-  // Also record the email in the database
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const supabase = getAdminClient();
-    if (supabase) {
-      await supabase.from('email_notifications').insert({
-        user_id: profile.id,
-        event_id: event.id,
-        registration_id: registration.id,
-        email_type: 'registration_confirmation',
-        subject,
-        body,
-        sent_at: new Date().toISOString(),
-        status: 'sent',
-      });
-    }
-  }
-}
-
-// Send email when payment is declined
-export async function notifyPaymentDeclined(registration: any, event: any, profile: any, reason: string): Promise<void> {
-  if (!profile?.email) return;
-
-  const emailData: DeclineEmailData = {
-    eventTitle: event.title,
-    ticketCode: registration.ticket_code,
-    declineReason: reason,
-  };
-
-  const subject = EMAILS.paymentDeclined.subject(event.title);
-  const body = EMAILS.paymentDeclined.body(emailData);
-
-  await sendPaymentDecline(profile.email || '', emailData);
-
-  // Record in database
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const supabase = getAdminClient();
-    if (supabase) {
-      await supabase.from('email_notifications').insert({
-        user_id: profile.id,
-        event_id: event.id,
-        registration_id: registration.id,
-        email_type: 'payment_declined',
-        subject,
-        body,
-        sent_at: new Date().toISOString(),
-        status: 'sent',
-      });
-    }
-  }
-}
-
-// Send email when payment is verified
-export async function notifyPaymentVerified(registration: any, event: any, profile: any): Promise<void> {
-  if (!profile?.email) return;
-
-  const emailData: VerifyEmailData = {
-    eventTitle: event.title,
-    festTitle: event.fest?.title,
-    ticketCode: registration.ticket_code,
-    eventDate: event.starts_at ? new Date(event.starts_at).toLocaleDateString('en-BD') : 'TBA',
-    venue: event.venue || 'TBA',
-    eventTime: event.starts_at ? new Date(event.starts_at).toLocaleTimeString('en-BD') : 'TBA',
-  };
-
-  const subject = EMAILS.paymentVerified.subject(event.title);
-  const body = EMAILS.paymentVerified.body(emailData);
-
-  await sendPaymentVerified(profile.email || '', emailData);
-
-  // Record in database
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const supabase = getAdminClient();
-    if (supabase) {
-      await supabase.from('email_notifications').insert({
-        user_id: profile.id,
-        event_id: event.id,
-        registration_id: registration.id,
-        email_type: 'payment_verified',
-        subject,
-        body,
-        sent_at: new Date().toISOString(),
-        status: 'sent',
-      });
-    }
-  }
+export async function sendPaymentDecline(
+  email: string,
+  data: DeclineEmailData
+): Promise<boolean> {
+  const { subject, text } = renderPaymentDeclined(data);
+  const sent = await sendEmail(email, subject, text);
+  await recordEmailLog({ emailType: 'payment_declined', subject, body: text, sent });
+  return sent;
 }

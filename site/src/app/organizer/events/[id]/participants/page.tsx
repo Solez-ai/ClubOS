@@ -12,6 +12,7 @@ import {
   Calendar, Clock, Wallet, Phone, ExternalLink, AlertCircle, Shield
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { notifyRegistrationEmail } from '@/lib/email-client';
 
 export default function ParticipantsPage() {
   const params = useParams();
@@ -116,7 +117,12 @@ export default function ParticipantsPage() {
 
       if (data) setRegistrations(data);
 
-      // TODO: Send email notification to participant
+      // Best-effort confirmation email via server route
+      try {
+        await notifyRegistrationEmail('registration_confirmation', registrationId);
+      } catch (emailErr) {
+        console.warn('Registration confirmation email failed:', emailErr);
+      }
     } catch (err) {
       console.error('Error verifying registration:', err);
     }
@@ -144,6 +150,13 @@ export default function ParticipantsPage() {
 
       if (error) throw error;
 
+      // Best-effort decline email via server route (reason included)
+      try {
+        await notifyRegistrationEmail('payment_declined', registrationId, { declineReason: declineComment });
+      } catch (emailErr) {
+        console.warn('Decline email failed:', emailErr);
+      }
+
       // Clear modal
       setShowDeclineModal(null);
       setDeclineComment('');
@@ -156,8 +169,6 @@ export default function ParticipantsPage() {
         .order('created_at', { ascending: false });
 
       if (data) setRegistrations(data);
-
-      // TODO: Send email notification to participant
     } catch (err) {
       console.error('Error declining registration:', err);
     }

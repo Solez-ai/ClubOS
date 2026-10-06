@@ -13,6 +13,7 @@ import {
   Lock, Unlock, Check, AlertCircle, ExternalLink, Timer
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { notifyRegistrationEmail } from '@/lib/email-client';
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -133,6 +134,11 @@ export default function EventDetailPage() {
 
       setSuccess('Registration submitted! Check your email for confirmation.');
       setHasRegistered(true);
+
+      // Best-effort confirmation email
+      if (reg?.id) {
+        void notifyRegistrationEmail('registration_confirmation', reg.id);
+      }
 
       // Redirect to payment if there's a paid segment
       const hasPaidSegments = event.segments?.some((s: any) => !s.is_free);

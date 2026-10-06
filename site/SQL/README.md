@@ -1,2 +1,2 @@
--- Reference: Root SQL/01_schema.sql
--- Run SQL/01_schema.sql, SQL/02_functions.sql, and SQL/03_seed.sql in order in your Supabase SQL Editor.
+-- Reference: Root SQL/ directory
+-- Run SQL/01_schema.sql, SQL/02_functions.sql, SQL/03_seed.sql, and SQL/04_notifications.sql in order in your Supabase SQL Editor.
