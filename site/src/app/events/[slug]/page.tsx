@@ -41,13 +41,13 @@ export default function EventDetailPage() {
       if (!supabase) return;
 
       // Check auth
-      const { data: { data: authData } } = await supabase.auth.getUser();
+      const { data: authData } = await supabase.auth.getUser();
       if (authData?.user) {
-        setUser(data.user);
+        setUser(authData.user);
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', data.user.id)
+          .eq('id', authData.user.id)
           .single();
         setUserProfile(profile);
       }
@@ -55,8 +55,8 @@ export default function EventDetailPage() {
       // Fetch event
       const { data, error } = await supabase
         .from('events')
-        .select(`
-          *,
+        .select(
+          `*,
           fest:fest_id(*),
           segments(*),
           event_tags(tag_id),
@@ -78,7 +78,7 @@ export default function EventDetailPage() {
           .from('registrations')
           .select('id, status')
           .eq('event_id', data.id)
-          .eq('user_id', data.user.id)
+          .eq('user_id', authData.user.id)
           .single();
 
         if (reg) setHasRegistered(true);

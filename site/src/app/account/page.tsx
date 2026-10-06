@@ -197,7 +197,7 @@ export default function AccountPage() {
               <Input
                 label="Full Name"
                 value={profile.full_name || ''}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
                 placeholder="Enter your full name"
               />
 
@@ -217,7 +217,7 @@ export default function AccountPage() {
                   <input
                     type="tel"
                     value={profile.phone || ''}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
                     placeholder="+880 1XXX-XXXXXX"
                     className="w-full pl-10 pr-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                   />
@@ -230,7 +230,7 @@ export default function AccountPage() {
                   <input
                     type="text"
                     value={profile.institution || ''}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile(prev => ({ ...prev, institution: e.target.value }))}
+                    onChange={(e) => setProfile(prev => ({ ...prev, institution: e.target.value }))}
                     placeholder="Your organization or club name"
                     className="w-full pl-10 pr-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                   />
@@ -241,7 +241,7 @@ export default function AccountPage() {
                 <label className="block text-sm font-medium mb-1.5">Bio</label>
                 <textarea
                   value={profile.bio || ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                  onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
                   placeholder="Tell us about yourself..."
                   rows={4}
                   className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
