@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
@@ -9,21 +9,79 @@ import { Eyebrow } from '@/components/ui/Eyebrow';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { User, Shield, Sparkles } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleDemoLogin = (role: 'participant' | 'organizer') => {
+  const supabase = React.useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return null;
+    }
+    return createClient();
+  }, []);
+
+  // If already logged in, redirect based on role
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        redirectToRoleHome(data.user.id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
+
+  const redirectToRoleHome = async (userId: string) => {
+    if (!supabase) return;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (profile?.role === 'organizer') {
+      router.push('/organizer');
+    } else {
+      router.push('/events');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) {
+      setError('Supabase is not configured. Please add your credentials in environment settings.');
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const { data, error: authErr } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authErr) {
+        setError(authErr.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (data?.user) {
+        await redirectToRoleHome(data.user.id);
+      }
       setIsLoading(false);
-      if (role === 'organizer') router.push('/organizer');
-      else router.push('/passport');
-    }, 400);
+    } catch {
+      setError('An unexpected error occurred');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -36,46 +94,22 @@ export default function LoginPage() {
           <h1 className="font-serif text-3xl text-[var(--text)] font-normal">
             Sign in to ClubOS
           </h1>
-          <p className="text-xs text-[var(--muted)]">Access your digital passport, tickets, and organizer tools.</p>
+          <p className="text-xs text-[var(--muted)]">
+            Participants and organizers use the same sign-in — we&apos;ll take you to the right place.
+          </p>
         </div>
 
-        {/* DEMO 1-CLICK BUTTONS */}
-        <Card className="flex flex-col gap-3 p-5 bg-[var(--accent-soft)] border-[var(--accent)]/40">
-          <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--accent)] font-medium">
-            1-CLICK DEMO ACCESS FOR JUDGES
-          </span>
-          <div className="flex flex-col gap-2">
-            <Button
-              onClick={() => handleDemoLogin('participant')}
-              isLoading={isLoading}
-              className="w-full gap-2 text-xs"
-            >
-              <User size={14} />
-              <span>Continue as Demo Participant (Tanvir Hossain)</span>
-            </Button>
-            <Button
-              onClick={() => handleDemoLogin('organizer')}
-              isLoading={isLoading}
-              variant="secondary"
-              className="w-full gap-2 text-xs bg-[var(--surface)]"
-            >
-              <Shield size={14} />
-              <span>Continue as Demo Organizer (DRMC Lead)</span>
-            </Button>
-          </div>
-        </Card>
-
-        {/* Standard Form */}
         <Card className="flex flex-col gap-5 p-6">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleDemoLogin('participant');
-            }}
-            className="flex flex-col gap-4"
-          >
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input label="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-sm flex items-start gap-2">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
             <Button type="submit" isLoading={isLoading} className="w-full mt-2">
               Sign In
@@ -83,9 +117,9 @@ export default function LoginPage() {
           </form>
 
           <div className="text-center font-mono text-xs text-[var(--muted)] border-t border-[var(--border)] pt-4">
-            Don't have a passport yet?{' '}
+            Don&apos;t have an account yet?{' '}
             <Link href="/signup" className="text-[var(--accent)] hover:underline">
-              Create Passport
+              Create Account
             </Link>
           </div>
         </Card>

@@ -1,11 +1,12 @@
 'use client';
 
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User, Building2, Check, Sparkles } from 'lucide-react';
 
 export default function SignUpPage() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -125,7 +126,8 @@ export default function SignUpPage() {
           return;
         }
 
-        redirect('/');
+        // Route to the appropriate screen based on role
+        router.push(role === 'organizer' ? '/organizer' : '/events');
       }
     } catch (err) {
       setError('An unexpected error occurred');
