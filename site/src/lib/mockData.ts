@@ -80,11 +80,11 @@ export const MOCK_EVENTS: Event[] = [
     registration_deadline: new Date(now.getTime() + 86400000).toISOString(),
     capacity: 50,
     waitlist_enabled: true,
-    requires_approval: false,
+  
     is_team_event: true,
     team_min: 1,
     team_max: 3,
-    fee_amount: 0,
+  
     xp_reward: 150,
     checkin_token: 'token_ai_web_dev_live',
     custom_fields: [
@@ -121,11 +121,11 @@ export const MOCK_EVENTS: Event[] = [
     registration_deadline: new Date(now.getTime() + 18000000).toISOString(),
     capacity: 100,
     waitlist_enabled: true,
-    requires_approval: false,
+  
     is_team_event: false,
     team_min: 1,
     team_max: 1,
-    fee_amount: 0,
+  
     xp_reward: 120,
     checkin_token: 'token_cp_contest',
     custom_fields: [
@@ -161,11 +161,11 @@ export const MOCK_EVENTS: Event[] = [
     registration_deadline: new Date(now.getTime() + 86400000).toISOString(),
     capacity: 10,
     waitlist_enabled: true,
-    requires_approval: false,
+  
     is_team_event: true,
     team_min: 2,
     team_max: 4,
-    fee_amount: 0,
+  
     xp_reward: 140,
     checkin_token: 'token_robotics_challenge',
     custom_fields: [
@@ -201,11 +201,11 @@ export const MOCK_EVENTS: Event[] = [
     registration_deadline: new Date(now.getTime() - 2.1 * 86400000).toISOString(),
     capacity: 200,
     waitlist_enabled: false,
-    requires_approval: false,
+  
     is_team_event: false,
     team_min: 1,
     team_max: 1,
-    fee_amount: 0,
+  
     xp_reward: 80,
     checkin_token: 'token_keynote_past',
     custom_fields: [],

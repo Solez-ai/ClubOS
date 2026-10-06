@@ -8,7 +8,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { Loader2, Building2, ArrowRight } from 'lucide-react';
+import { Loader2, Building2, ArrowRight, Mail, Phone } from 'lucide-react';
 
 export default function CreateOrganizationPage() {
   const [name, setName] = useState('');

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import {
   Loader2, Calendar, Clock, MapPin, Tag, Plus, Trash2, ArrowRight,
-  AlertCircle, Shield, Users, DollarSign, Check, Image, Layers
+  AlertCircle, Shield, Users, DollarSign, Check, Image, Layers, Globe
 } from 'lucide-react';
 
 // Payment method types

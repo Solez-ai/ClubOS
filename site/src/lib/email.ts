@@ -149,7 +149,7 @@ export async function sendEmail(to: string | undefined, subject: string | undefi
 }
 
 // Send registration confirmation email
-export async function sendRegistrationConfirmation(
+async function sendRegConfirm(
   email: string,
   data: RegistrationEmailData
 ): Promise<boolean> {
@@ -159,7 +159,7 @@ export async function sendRegistrationConfirmation(
 }
 
 // Send payment decline notification
-export async function sendPaymentDecline(
+async function sendPayDecline(
   email: string,
   data: DeclineEmailData
 ): Promise<boolean> {
@@ -169,7 +169,7 @@ export async function sendPaymentDecline(
 }
 
 // Send payment verified notification
-export async function sendPaymentVerified(
+async function sendPayVerify(
   email: string,
   data: VerifyEmailData
 ): Promise<boolean> {
