@@ -12,13 +12,14 @@ import { PassportCard } from '@/components/ui/PassportCard';
 import { Stamp } from '@/components/ui/Stamp';
 import { calculateLevel } from '@/lib/xp';
 import { createClient } from '@/lib/supabase/client';
+import { Profile } from '@/lib/types';
 import { UserPlus, Lock, AlertCircle } from 'lucide-react';
 
 export default function PublicPassportPage() {
   const params = useParams();
   const handle = params.handle as string;
-  const [profile, setProfile] = useState<any>(null);
-  const [stamps, setStamps] = useState<any[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [stamps, setStamps] = useState<{ id: string; kind: 'event' | 'fest'; event: { title: string } | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 

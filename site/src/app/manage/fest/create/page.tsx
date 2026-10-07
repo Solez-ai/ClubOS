@@ -34,9 +34,9 @@ export default function CreateFestPage() {
   const [venueLng, setVenueLng] = useState('');
 
   // Organization data
-  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState(orgId || '');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
 
   const supabase = useMemo(() => {
@@ -158,8 +158,8 @@ export default function CreateFestPage() {
       setTimeout(() => {
         router.push('/organizer');
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create fest');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create fest');
       setLoading(false);
     }
   };

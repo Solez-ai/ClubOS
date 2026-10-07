@@ -13,7 +13,7 @@ import { ArrowLeft, Camera, CheckCircle2, UserCheck } from 'lucide-react';
 
 export default function OrganizerCheckInPage() {
   const [ticketInput, setTicketInput] = useState('');
-  const [lastCheckIn, setLastCheckIn] = useState<any>(null);
+  const [lastCheckIn, setLastCheckIn] = useState<{ ticket_code: string; participant: string; handle: string; event: string; status: string; time: string } | null>(null);
   const [count, setCount] = useState(12);
 
   const handleCheckIn = (code: string) => {

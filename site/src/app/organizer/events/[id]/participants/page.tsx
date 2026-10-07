@@ -8,8 +8,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
-  ArrowLeft, Check, X, Search, Filter, Download, Mail, User,
-  Calendar, Clock, Wallet, Phone, ExternalLink, AlertCircle, Shield
+  ArrowLeft, Check, X, Search, Download, User
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { notifyRegistrationEmail } from '@/lib/email-client';
@@ -19,16 +18,15 @@ export default function ParticipantsPage() {
   const router = useRouter();
   const eventId = params.id as string;
 
-  const [event, setEvent] = useState<any>(null);
-  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [event, setEvent] = useState<{ id: string; title: string } | null>(null);
+  const [registrations, setRegistrations] = useState<{ id: string; status: string; ticket_code: string; total_price: number; payment_status: string; team_name?: string | null; created_at: string; decline_reason?: string | null; profile?: { id: string; full_name: string; handle: string; email: string; phone?: string | null; avatar_url?: string | null } | null; registration_segments?: { id: string; segment?: { id: string; title: string } | null }[] | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'paid' | 'declined'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [declineComment, setDeclineComment] = useState('');
   const [showDeclineModal, setShowDeclineModal] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
-  const [selectedRegistration, setSelectedRegistration] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
 
   const supabase = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -176,6 +174,8 @@ export default function ParticipantsPage() {
     setActionLoading(null);
   };
 
+  const selectedRegistration = registrations.find((r) => r.id === showDeclineModal) ?? null;
+
   const filteredRegistrations = registrations.filter((reg) => {
     // Filter by status
     if (filter !== 'all') {
@@ -199,14 +199,6 @@ export default function ParticipantsPage() {
 
     return true;
   });
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-BD', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
 
   const formatDateTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-BD', {

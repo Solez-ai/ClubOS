@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone CommonJS node scripts (run directly with node, not part of the build).
+    "test-auth.js",
+    "test-db.js",
+    "test-trigger.js",
   ]),
 ]);
 

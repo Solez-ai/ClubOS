@@ -103,10 +103,10 @@ export default function CreateEventPage() {
 
   // Data
   const [festIdSelected, setFestIdSelected] = useState(festId || '');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
-  const [fests, setFests] = useState<any[]>([]);
-  const [tags, setTags] = useState<any[]>([]);
+  const [fests, setFests] = useState<{ id: string; title: string }[]>([]);
+  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
 
   const supabase = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -142,16 +142,24 @@ export default function CreateEventPage() {
       setIsOrganizer(true);
 
       // Get user's fests
-      const { data: userFests } = await supabase
-        .from('fests')
-        .select('*, org:organizations(*)')
-        .eq('org_id', orgId || (await supabase.from('organizations').select('id').eq('created_by', authData.user.id).single()).data?.id)
-        .or(`is_published.eq.true,is_published.eq.false`)
-        .order('created_at', { ascending: false });
+      let userOrgId = orgId;
+      if (!userOrgId) {
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('created_by', authData.user.id)
+          .single();
+        userOrgId = org?.id;
+      }
 
-      if (userFests) {
-        setFests(userFests);
-        if (userFests.length > 0 && !festId) {
+      if (userOrgId) {
+        const { data: userFests } = await supabase
+          .from('fests')
+          .select('*, org:organizations(*)')
+          .eq('org_id', userOrgId)
+          .order('created_at', { ascending: false });
+        setFests(userFests || []);
+        if (userFests && userFests.length > 0 && !festId) {
           setFestIdSelected(userFests[0].id);
         }
       }
@@ -185,7 +193,7 @@ export default function CreateEventPage() {
     setSegments(segments.filter(s => s.id !== id));
   };
 
-  const updateSegment = (id: string, field: keyof SegmentData, value: any) => {
+  const updateSegment = (id: string, field: keyof SegmentData, value: string | number | boolean) => {
     setSegments(segments.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
 
@@ -239,13 +247,25 @@ export default function CreateEventPage() {
           xp_reward: parseInt(xpReward) || 0,
           is_published: true,
           is_featured: false,
-          created_by: user?.id,
+          created_by:    user?.id,
         })
         .select()
-        .single();
+        .single()
+        .then((created) => {
+          if (!created) {
+            throw new Error('Event insert returned no row');
+          }
+          return created;
+        });
 
       if (eventErr) {
         setError(eventErr.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!event) {
+        setError('Failed to create event (no row returned)');
         setLoading(false);
         return;
       }
@@ -262,7 +282,7 @@ export default function CreateEventPage() {
       // Add segments
       for (const seg of segments) {
         if (seg.title) {
-          await supabase.from('segments').insert({
+          const { error: segErr } = await supabase.from('segments').insert({
             event_id: event.id,
             title: seg.title,
             description: seg.description,
@@ -278,6 +298,9 @@ export default function CreateEventPage() {
             is_active: true,
             created_by: user?.id,
           });
+          if (segErr) {
+            console.error('Segment insert failed for segment', seg.title, segErr);
+          }
         }
       }
 
@@ -285,8 +308,8 @@ export default function CreateEventPage() {
       setTimeout(() => {
         router.push(`/events/${event.slug}`);
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create event');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create event');
       setLoading(false);
     }
   };

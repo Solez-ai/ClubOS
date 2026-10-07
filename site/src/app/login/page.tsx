@@ -26,17 +26,6 @@ export default function LoginPage() {
     return createClient();
   }, []);
 
-  // If already logged in, redirect based on role
-  useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        redirectToRoleHome(data.user.id);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase]);
-
   const redirectToRoleHome = async (userId: string) => {
     if (!supabase) return;
     const { data: profile } = await supabase
@@ -51,6 +40,17 @@ export default function LoginPage() {
       router.push('/events');
     }
   };
+
+  // If already logged in, redirect based on role
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        void redirectToRoleHome(data.user.id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

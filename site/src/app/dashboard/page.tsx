@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
  * /dashboard – shows organizations owned by the logged‑in user and shortcuts to create fests / events.
  */
 export default function DashboardPage() {
-  const [orgs, setOrgs] = useState<any[]>([]);
+  const [orgs, setOrgs] = useState<{ id: string; name: string; slug: string }[]>([]);
   const [error, setError] = useState('');
   const router = useRouter();
   const supabase = React.useMemo(() => {
@@ -43,7 +43,10 @@ export default function DashboardPage() {
         return;
       }
       // data is an array of objects with .organizations field
-      const owned = data.map((row: any) => row.organizations).filter(Boolean);
+      type OrgRow = { organizations?: { id: string; name: string; slug: string } | null };
+      const owned = ((data || []) as unknown as OrgRow[])
+        .map((row) => row.organizations)
+        .filter((o): o is { id: string; name: string; slug: string } => Boolean(o));
       setOrgs(owned);
     };
     loadOrgs();
@@ -57,7 +60,7 @@ export default function DashboardPage() {
           <h2 className="font-serif text-2xl mb-4">My Dashboard</h2>
           {error && <p className="text-red-600 mb-2">{error}</p>}
           {orgs.length === 0 ? (
-            <p>You don't own any organizations yet.</p>
+            <p>You don&apos;t own any organizations yet.</p>
           ) : (
             <ul className="space-y-4">
               {orgs.map((org) => (

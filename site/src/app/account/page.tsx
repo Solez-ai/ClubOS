@@ -96,8 +96,8 @@ export default function AccountPage() {
         setSuccess('Profile updated successfully!');
         router.refresh();
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to save profile');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save profile');
     }
 
     setSaving(false);

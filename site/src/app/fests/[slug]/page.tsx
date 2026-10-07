@@ -11,14 +11,15 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EventCard } from '@/components/cards/EventCard';
 import { createClient } from '@/lib/supabase/client';
+import { Event } from '@/lib/types';
 
 export default function FestDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const [fest, setFest] = useState<any>(null);
-  const [festEvents, setFestEvents] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [topParticipants, setTopParticipants] = useState<any[]>([]);
+  const [fest, setFest] = useState<{ id: string; title: string; tagline: string | null; description: string | null; cover_url: string | null; venue: string | null; google_maps_url: string | null; start_date: string; end_date: string; org?: { name: string } | null } | null>(null);
+  const [festEvents, setFestEvents] = useState<Event[]>([]);
+  const [announcements, setAnnouncements] = useState<{ id: string; title: string; body: string | null; created_at: string }[]>([]);
+  const [topParticipants, setTopParticipants] = useState<{ id: string; full_name: string; xp: number; institution?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 

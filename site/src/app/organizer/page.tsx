@@ -8,7 +8,7 @@ import { Eyebrow } from '@/components/ui/Eyebrow';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
-import { Plus, Users, QrCode, Calendar, Activity, AlertCircle } from 'lucide-react';
+import { Plus, Users, QrCode, Calendar, Activity, AlertCircle, Compass } from 'lucide-react';
 
 interface EventRow {
   id: string;
@@ -17,15 +17,21 @@ interface EventRow {
   venue: string | null;
   starts_at: string;
   is_published: boolean;
-  registered_count?: number;
-  confirmed_count?: number;
-  checked_in_count?: number;
+}
+
+interface FestRow {
+  id: string;
+  title: string;
+  venue: string | null;
+  start_date: string;
+  is_published: boolean;
 }
 
 export default function OrganizerDashboardPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [fests, setFests] = useState<FestRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [stats, setStats] = useState({ total: 0, confirmed: 0, pending: 0 });
 
@@ -59,11 +65,17 @@ export default function OrganizerDashboardPage() {
         .single();
 
       if (profile?.role !== 'organizer') {
-        // Not an organizer — send to participant home
         window.location.href = '/events';
         return;
       }
       setIsOrganizer(true);
+
+      // Fetch fests created by this organizer
+      const { data: festsData } = await supabase
+        .from('fests')
+        .select('*')
+        .eq('created_by', authData.user.id)
+        .order('start_date', { ascending: true });        if (festsData) setFests(festsData);
 
       // Fetch events created by this organizer
       const { data: eventsData } = await supabase
@@ -178,6 +190,45 @@ export default function OrganizerDashboardPage() {
           </Card>
         </div>
 
+        {/* My Fests List */}
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-2xl text-[var(--text)]">My Fests</h2>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {fests.length > 0 ? (
+              fests.map((fest) => (
+                <Card key={fest.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-mono text-xs text-[var(--accent)] uppercase">Fest</span>
+                    <h3 className="font-serif text-lg text-[var(--text)]">{fest.title}</h3>
+                    <span className="font-mono text-xs text-[var(--muted)]">
+                      {new Date(fest.start_date).toLocaleDateString()} · {fest.venue || 'TBA'} · {fest.is_published ? 'Published' : 'Draft'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link href={`/passport/fests/${fest.id}`}>
+                      <Button size="sm" className="font-mono text-xs gap-1.5">
+                        <Compass size={13} />
+                        View Page
+                      </Button>
+                    </Link>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center gap-4 bg-[var(--surface)] rounded-xl border border-[var(--border)]">
+                <Compass size={32} className="text-[var(--muted)]" />
+                <p className="text-sm text-[var(--muted)] max-w-sm">
+                  You haven&apos;t created any fests yet.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* My Events List */}
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between">
@@ -217,12 +268,12 @@ export default function OrganizerDashboardPage() {
                 <Calendar size={32} className="text-[var(--muted)]" />
                 <h3 className="font-serif text-xl">No events yet</h3>
                 <p className="text-sm text-[var(--muted)] max-w-sm">
-                  Create a fest first, then add events with segments and pricing.
+                  Create an event with segments and pricing to start taking registrations.
                 </p>
-                <Link href="/manage/fest/create">
+                <Link href="/manage/event/create">
                   <Button className="gap-2">
                     <Plus size={14} />
-                    Create Your First Fest
+                    Create Your First Event
                   </Button>
                 </Link>
               </div>
@@ -235,3 +286,4 @@ export default function OrganizerDashboardPage() {
     </div>
   );
 }
+

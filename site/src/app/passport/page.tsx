@@ -15,6 +15,7 @@ import { Medallion } from '@/components/ui/Medallion';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { calculateLevel } from '@/lib/xp';
 import { createClient } from '@/lib/supabase/client';
+import { RegStatus } from '@/lib/types';
 import { Share2 } from 'lucide-react';
 
 interface ProfileRow {
@@ -32,11 +33,11 @@ interface ProfileRow {
 export default function PassportPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [myFests, setMyFests] = useState<any[]>([]);
-  const [myStamps, setMyStamps] = useState<any[]>([]);
-  const [myBadges, setMyBadges] = useState<{ badge: any; earned: boolean }[]>([]);
-  const [myRegs, setMyRegs] = useState<any[]>([]);
-  const [connections, setConnections] = useState<any[]>([]);
+  const [myFests, setMyFests] = useState<{ id: string; title: string; slug: string; tagline: string | null }[]>([]);
+  const [myStamps, setMyStamps] = useState<{ id: string; kind: 'event' | 'fest'; earned_at: string; event: { title: string } | null; fest: { title: string } | null }[]>([]);
+  const [myBadges, setMyBadges] = useState<{ badge: { id: string; name: string; description: string | null; icon: string | null; rings: number | null; xp_reward: number | null }; earned: boolean }[]>([]);
+  const [myRegs, setMyRegs] = useState<{ id: string; status: RegStatus; ticket_code: string; event: { id: string; title: string; venue: string | null; slug: string; fest?: { id: string; title: string; slug: string } | null } | null }[]>([]);
+  const [connections, setConnections] = useState<{ id: string; full_name: string; handle: string }[]>([]);
   const [activeTab, setActiveTab] = useState('fests');
   const [loading, setLoading] = useState(true);
 
@@ -76,8 +77,8 @@ export default function PassportPage() {
       setMyRegs(regs || []);
 
       // Derive unique fests from registrations
-      const festMap = new Map<string, any>();
-      (regs || []).forEach((r: any) => {
+      const festMap = new Map<string, { id: string; title: string; slug: string; tagline: string | null }>();
+      ((regs || []) as { event?: { fest?: { id: string; title: string; slug: string; tagline: string | null } | null } | null }[]).forEach((r) => {
         if (r.event?.fest && !festMap.has(r.event.fest.id)) {
           festMap.set(r.event.fest.id, r.event.fest);
         }
@@ -98,8 +99,13 @@ export default function PassportPage() {
         .from('user_badges')
         .select('badge_id')
         .eq('user_id', authData.user.id);
-      const earnedIds = new Set((userBadges || []).map((ub: any) => ub.badge_id));
-      setMyBadges((badgeCatalog || []).map((b: any) => ({ badge: b, earned: earnedIds.has(b.id) })));
+      const earnedIds = new Set<string>();
+      (userBadges || []).forEach((ub) => {
+        if (ub.badge_id) {
+          earnedIds.add(ub.badge_id);
+        }
+      });
+      setMyBadges((badgeCatalog || []).map((b) => ({ badge: b as { id: string; name: string; description: string | null; icon: string | null; rings: number | null; xp_reward: number | null }, earned: earnedIds.has(b.id) })));
 
       // Connections
       const { data: connsA } = await supabase
@@ -110,10 +116,11 @@ export default function PassportPage() {
         .from('connections')
         .select('*, b:profiles!connections_user_b_fkey(*)')
         .eq('user_a', authData.user.id);
+      type ConnProfile = { id: string; full_name: string; handle: string };
       const conns = [
-        ...(connsA || []).map((c: any) => c.a),
-        ...(connsB || []).map((c: any) => c.b),
-      ].filter(Boolean);
+        ...(connsA || []).map((c) => c.a as ConnProfile | null),
+        ...(connsB || []).map((c) => c.b as ConnProfile | null),
+      ].filter((c): c is ConnProfile => c !== null && typeof c.full_name === 'string' && typeof c.handle === 'string');
       setConnections(conns);
 
       setLoading(false);
@@ -162,7 +169,7 @@ export default function PassportPage() {
         {/* Header: Passport Card + XP */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center border-b border-[var(--border)] pb-12">
           <div className="lg:col-span-6 flex justify-center lg:justify-start">
-            <PassportCard profile={profile as any} />
+            <PassportCard profile={profile} />
           </div>
 
           <div className="lg:col-span-6 flex flex-col gap-6">
@@ -214,7 +221,7 @@ export default function PassportPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {myFests.length > 0 ? (
                 myFests.map((fest) => {
-                  const festRegs = myRegs.filter((r: any) => r.event?.fest?.id === fest.id);
+                  const festRegs = myRegs.filter((r) => r.event?.fest?.id === fest.id);
                   return (
                     <Card key={fest.id} className="flex flex-col justify-between gap-6">
                       <div className="flex flex-col gap-2">
@@ -278,11 +285,11 @@ export default function PassportPage() {
                 <Medallion
                   key={badge.id}
                   name={badge.name}
-                  description={badge.description}
-                  iconName={badge.icon}
-                  rings={badge.rings}
+                  description={badge.description ?? undefined}
+                  iconName={badge.icon ?? undefined}
+                  rings={badge.rings ?? undefined}
                   earned={earned}
-                  xpReward={badge.xp_reward}
+                  xpReward={badge.xp_reward ?? undefined}
                 />
               ))}
               {myBadges.length === 0 && (
@@ -302,8 +309,8 @@ export default function PassportPage() {
                         <StatusPill status={reg.status} />
                         <span className="font-mono text-xs text-[var(--muted)]">TICKET: {reg.ticket_code}</span>
                       </div>
-                      <h3 className="font-serif text-xl text-[var(--text)]">{reg.event?.title}</h3>
-                      <span className="font-mono text-xs text-[var(--muted)]">{reg.event?.venue}</span>
+                      <h3 className="font-serif text-xl text-[var(--text)]">{reg.event?.title ?? 'Event'}</h3>
+                      <span className="font-mono text-xs text-[var(--muted)]">{reg.event?.venue ?? 'TBA'}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <Link href={`/events/${reg.event?.slug}`}>
@@ -322,7 +329,7 @@ export default function PassportPage() {
           {activeTab === 'connections' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {connections.length > 0 ? (
-                connections.map((c: any) => (
+                connections.map((c) => (
                   <Card key={c.id} className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center font-serif text-lg text-[var(--accent)]">

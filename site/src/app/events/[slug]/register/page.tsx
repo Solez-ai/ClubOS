@@ -48,15 +48,19 @@ export default function EventRegistrationPaymentPage() {
   const router = useRouter();
   const slug = params.slug as string;
 
-  const [event, setEvent] = useState<any>(null);
-  const [registration, setRegistration] = useState<any>(null);
-  const [segments, setSegments] = useState<any[]>([]);
+  const [event, setEvent] = useState<{ id: string; title: string; segments?: { id: string; title: string; is_free: boolean; price: number; payment_method?: string | null }[] | null } | null>(null);
+  const [registration, setRegistration] = useState<{ id: string; ticket_code: string; registration_segments?: { id: string; segment_id: string; price_paid: string | number; segment?: { title: string; is_free: boolean } | null }[] | null } | null>(null);
+  const [segments, setSegments] = useState<{ id: string; segment_id: string; price_paid: string | number; segment?: { title: string; is_free: boolean } | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [user, setUser] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ id: string; full_name: string; email: string; phone?: string | null } | null>(null);
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactMobile, setContactMobile] = useState('');
+  const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>([]);
   const [transactionId, setTransactionId] = useState('');
   const [transactionMobile, setTransactionMobile] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
@@ -89,6 +93,11 @@ export default function EventRegistrationPaymentPage() {
         .eq('id', authData.user.id)
         .single();
       setUserProfile(profile);
+      if (profile) {
+        setContactName(profile.full_name || '');
+        setContactEmail(profile.email || '');
+        setContactMobile(profile.phone || '');
+      }
 
       // Fetch event
       const { data: eventData } = await supabase
@@ -104,6 +113,8 @@ export default function EventRegistrationPaymentPage() {
       }
 
       setEvent(eventData);
+      // Default to selecting every segment; the participant can deselect below
+      setSelectedSegmentIds((eventData.segments ?? []).map((s: { id: string }) => s.id));
 
       // Fetch registration
       const { data: regData } = await supabase
@@ -124,7 +135,7 @@ export default function EventRegistrationPaymentPage() {
       setSegments(regData.registration_segments || []);
 
       // Determine payment method from segments
-      const paidSegments = eventData.segments?.filter((s: any) => !s.is_free);
+      const paidSegments = (eventData.segments ?? []).filter((s: { is_free: boolean; payment_method?: string | null }) => !s.is_free);
       if (paidSegments && paidSegments.length > 0) {
         setSelectedPaymentMethod(paidSegments[0].payment_method);
       }
@@ -164,36 +175,90 @@ export default function EventRegistrationPaymentPage() {
       .eq('id', registration.id);
   };
 
+  const toggleSegment = (segId: string) => {
+    setSelectedSegmentIds((prev) =>
+      prev.includes(segId) ? prev.filter((id) => id !== segId) : [...prev, segId]
+    );
+  };
+
   const handleSubmitPayment = async () => {
-    if (!supabase || !registration || !selectedPaymentMethod) return;
+    if (!supabase || !registration) return;
 
-    if (!transactionId.trim()) {
-      setError('Please enter your transaction ID');
+    if (!contactName.trim() || !contactEmail.includes('@') || !contactMobile.trim()) {
+      setError('Please fill in your full name, a valid email, and your mobile number.');
       return;
     }
 
-    if (!transactionMobile.trim()) {
-      setError('Please enter the mobile number you paid from');
+    if (selectedSegmentIds.length === 0) {
+      setError('Please select at least one segment.');
       return;
     }
 
-    if (!screenshotUrl) {
-      setError('Please upload a payment screenshot');
-      return;
+    if (totalPrice > 0) {
+      if (!selectedPaymentMethod) {
+        setError('Please choose a payment method');
+        return;
+      }
+      if (!transactionId.trim()) {
+        setError('Please enter your transaction ID');
+        return;
+      }
+
+      if (!transactionMobile.trim()) {
+        setError('Please enter the mobile number you paid from');
+        return;
+      }
+
+      if (!screenshotUrl) {
+        setError('Please upload a payment screenshot');
+        return;
+      }
     }
 
     setSubmitting(true);
     setError('');
 
     try {
+      // Save the participant-provided details to their profile
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ full_name: contactName.trim(), phone: contactMobile.trim() })
+          .eq('id', user.id);
+      }
+
+      // Sync the segment selection onto the registration
+      const toRemove = segments
+        .filter((r) => !selectedSegmentIds.includes(r.segment_id))
+        .map((r) => r.segment_id);
+      if (toRemove.length > 0) {
+        await supabase
+          .from('registration_segments')
+          .delete()
+          .eq('registration_id', registration.id)
+          .in('segment_id', toRemove);
+      }
+      const toAdd = selectedSegmentIds.filter((id) => !segments.some((r) => r.segment_id === id));
+      for (const segId of toAdd) {
+        const seg = (event?.segments ?? []).find((s) => s.id === segId);
+        const paid = Boolean(seg && !seg.is_free);
+        await supabase.from('registration_segments').insert({
+          registration_id: registration.id,
+          segment_id: segId,
+          price_paid: paid ? Number(seg?.price) || 0 : 0,
+          status: paid ? 'paid' : 'selected',
+        });
+      }
+
       const { error: updateErr } = await supabase
         .from('registrations')
         .update({
-          payment_method: selectedPaymentMethod,
-          transaction_id: transactionId,
-          transaction_mobile: transactionMobile,
-          payment_status: 'paid',
-          payment_screenshot_url: screenshotUrl,
+          payment_method: selectedPaymentMethod || null,
+          transaction_id: transactionId || null,
+          transaction_mobile: transactionMobile || null,
+          payment_status: totalPrice > 0 ? 'paid' : 'pending',
+          payment_screenshot_url: screenshotUrl || null,
+          total_price: totalPrice,
         })
         .eq('id', registration.id);
 
@@ -203,14 +268,14 @@ export default function EventRegistrationPaymentPage() {
         return;
       }
 
-      // Update registration segments
-      for (const seg of segments) {
-        if (!seg.segment?.is_free) {
+      // Mark the selected paid segments as paid
+      for (const seg of selectedSegments) {
+        if (!seg.is_free) {
           await supabase
             .from('registration_segments')
             .update({ status: 'paid' })
             .eq('registration_id', registration.id)
-            .eq('segment_id', seg.segment_id);
+            .eq('segment_id', seg.id);
         }
       }
 
@@ -220,15 +285,18 @@ export default function EventRegistrationPaymentPage() {
       setTimeout(() => {
         router.push(`/events/${slug}`);
       }, 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit payment');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit payment');
       setSubmitting(false);
     }
   };
 
-  const totalPrice = segments
-    .filter((s: any) => s.segment && !s.segment.is_free)
-    .reduce((sum: number, s: any) => sum + (parseFloat(s.price_paid) || 0), 0);
+  const selectedSegments = (event?.segments ?? []).filter((s) => selectedSegmentIds.includes(s.id));
+
+  const totalPrice = selectedSegments.reduce(
+    (sum: number, s) => sum + (s.is_free ? 0 : Number(s.price) || 0),
+    0
+  );
 
   if (loading) {
     return (
@@ -306,30 +374,92 @@ export default function EventRegistrationPaymentPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Payment Form */}
+          {/* Left: Details + Payment Form */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Selected Segments */}
+            {/* Your Details */}
             <Card className="p-6">
-              <h2 className="font-medium mb-4">Selected Segments</h2>
-              <div className="flex flex-col gap-3">
-                {segments.map((seg: any, idx: number) => (
-                  <div
-                    key={seg.id}
-                    className="flex items-center justify-between p-3 bg-[var(--surface)] rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{seg.segment?.title || `Segment ${idx + 1}`}</p>
-                      {seg.segment?.is_free && (
-                        <span className="text-xs text-green-500">Free</span>
+              <h2 className="font-medium mb-4">Your Details</h2>
+              <div className="grid gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Full Name *</label>
+                  <input
+                    type="text"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Email Address *</label>
+                  <input
+                    type="email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                    required
+                  />
+                  <p className="text-xs text-[var(--muted)] mt-1">
+                    Confirmation and verification emails go to this address (your account email).
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Mobile Number *</label>
+                  <input
+                    type="tel"
+                    value={contactMobile}
+                    onChange={(e) => setContactMobile(e.target.value)}
+                    placeholder="+880 1XXX-XXXXXX"
+                    className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                    required
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Segment Picker */}
+            <Card className="p-6">
+              <h2 className="font-medium mb-1">Choose Your Segments</h2>
+              <p className="text-xs text-[var(--muted)] mb-4">
+                Pick which segments you want to join — the total updates automatically.
+              </p>
+              <div className="flex flex-col gap-2">
+                {(event?.segments ?? []).map((seg) => {
+                  const checked = selectedSegmentIds.includes(seg.id);
+                  return (
+                    <label
+                      key={seg.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                        checked
+                          ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                          : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSegment(seg.id)}
+                          className="w-4 h-4 rounded border-[var(--border)] accent-[var(--accent)]"
+                        />
+                        <div>
+                          <p className="font-medium text-sm">{seg.title}</p>
+                          {seg.is_free && <span className="text-xs text-green-500">Free</span>}
+                        </div>
+                      </div>
+                      {!seg.is_free && (
+                        <span className="font-mono font-medium text-sm">
+                          BDT {(Number(seg.price) || 0).toLocaleString()}
+                        </span>
                       )}
-                    </div>
-                    {!seg.segment?.is_free && (
-                      <span className="font-mono font-medium">
-                        BDT {parseFloat(seg.price_paid || 0).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                    </label>
+                  );
+                })}
+                {selectedSegments.length === 0 && (
+                  <p className="text-xs text-red-500">Select at least one segment to continue.</p>
+                )}
                 <div className="flex items-center justify-between p-3 bg-[var(--accent)]/10 rounded-lg border border-[var(--accent)]/30">
                   <span className="font-medium">Total</span>
                   <span className="text-xl font-bold text-[var(--accent)]">
@@ -348,23 +478,23 @@ export default function EventRegistrationPaymentPage() {
                   onClick={() => setSelectedPaymentMethod('bkash_send_money')}
                   className={`relative p-4 rounded-xl border-2 text-left transition-all ${
                     selectedPaymentMethod?.startsWith('bkash')
-                      ? 'border-pink-500 bg-pink-500/10 shadow-lg shadow-pink-500/20'
+                      ? 'border-[#e2136e] bg-[#e2136e]/10 shadow-lg shadow-[#e2136e]/20'
                       : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]'
                   }`}
                 >
                   {/* BKash Logo SVG - Pink theme */}
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      selectedPaymentMethod?.startsWith('bkash') ? 'bg-pink-500 text-white' : 'bg-pink-50 text-pink-600'
+                      selectedPaymentMethod?.startsWith('bkash') ? 'bg-[#e2136e]' : 'bg-[#e2136e]/10'
                     }`}>
                       {/* BKash Logo - B with pink circle */}
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                        <circle cx="12" cy="12" r="10" fill="currentColor" />
-                        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">B</text>
+                      <svg viewBox="0 0 24 24" className="w-6 h-6">
+                        <circle cx="12" cy="12" r="10" fill={selectedPaymentMethod?.startsWith('bkash') ? 'white' : '#e2136e'} />
+                        <text x="12" y="16.5" textAnchor="middle" fill={selectedPaymentMethod?.startsWith('bkash') ? '#e2136e' : 'white'} fontSize="14" fontWeight="900" fontFamily="sans-serif">b</text>
                       </svg>
                     </div>
                     <div>
-                      <p className="font-medium">BKash</p>
+                      <p className="font-medium">bKash</p>
                       <p className="text-xs text-[var(--muted)]">
                         {isSendMoney ? 'Send Money' : 'Pay Bill'}
                       </p>
@@ -376,8 +506,8 @@ export default function EventRegistrationPaymentPage() {
                       : 'Pay using Bill number'
                     }
                   </p>
-                  <div className={`p-2 rounded-lg ${selectedPaymentMethod?.startsWith('bkash') ? 'bg-pink-500/20' : 'bg-[var(--surface-2)]'}`}>
-                    <p className={`text-xs font-mono ${selectedPaymentMethod?.startsWith('bkash') ? 'text-pink-600' : 'text-[var(--muted)]'}`}>
+                  <div className={`p-2 rounded-lg ${selectedPaymentMethod?.startsWith('bkash') ? 'bg-[#e2136e]/20' : 'bg-[var(--surface-2)]'}`}>
+                    <p className={`text-xs font-mono ${selectedPaymentMethod?.startsWith('bkash') ? 'text-[#e2136e]' : 'text-[var(--muted)]'}`}>
                       {isSendMoney ? `Number: ${paymentInfo.number}` : 'Bill No: Provided after registration'}
                     </p>
                   </div>
@@ -388,19 +518,19 @@ export default function EventRegistrationPaymentPage() {
                   onClick={() => setSelectedPaymentMethod('nagad_send_money')}
                   className={`relative p-4 rounded-xl border-2 text-left transition-all ${
                     selectedPaymentMethod?.startsWith('nagad')
-                      ? 'border-orange-400 bg-orange-400/10 shadow-lg shadow-orange-400/20'
+                      ? 'border-[#f37021] bg-[#f37021]/10 shadow-lg shadow-[#f37021]/20'
                       : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]'
                   }`}
                 >
                   {/* Nagad Logo SVG - Orange/Yellow theme */}
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      selectedPaymentMethod?.startsWith('nagad') ? 'bg-orange-400 text-white' : 'bg-orange-50 text-orange-600'
+                      selectedPaymentMethod?.startsWith('nagad') ? 'bg-gradient-to-r from-[#f37021] to-[#f9a825]' : 'bg-[#f37021]/10'
                     }`}>
-                      {/* Nagad Logo - N with orange circle */}
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                        <circle cx="12" cy="12" r="10" fill="currentColor" />
-                        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">N</text>
+                      {/* Nagad Logo */}
+                      <svg viewBox="0 0 24 24" className="w-6 h-6">
+                        <circle cx="12" cy="12" r="10" fill={selectedPaymentMethod?.startsWith('nagad') ? 'white' : '#f37021'} />
+                        <path d="M9 8h2v6.5l3-4.5h2.5l-3.5 4.5 4 4.5h-2.5l-3-3.5v3.5H9V8z" fill={selectedPaymentMethod?.startsWith('nagad') ? '#f37021' : 'white'} />
                       </svg>
                     </div>
                     <div>
@@ -416,8 +546,8 @@ export default function EventRegistrationPaymentPage() {
                       : 'Pay using Bill number'
                     }
                   </p>
-                  <div className={`p-2 rounded-lg ${selectedPaymentMethod?.startsWith('nagad') ? 'bg-orange-400/20' : 'bg-[var(--surface-2)]'}`}>
-                    <p className={`text-xs font-mono ${selectedPaymentMethod?.startsWith('nagad') ? 'text-orange-600' : 'text-[var(--muted)]'}`}>
+                  <div className={`p-2 rounded-lg ${selectedPaymentMethod?.startsWith('nagad') ? 'bg-[#f37021]/20' : 'bg-[var(--surface-2)]'}`}>
+                    <p className={`text-xs font-mono ${selectedPaymentMethod?.startsWith('nagad') ? 'text-[#f37021]' : 'text-[var(--muted)]'}`}>
                       {isSendMoney ? `Number: ${paymentInfo.number}` : 'Bill No: Provided after registration'}
                     </p>
                   </div>
@@ -435,11 +565,18 @@ export default function EventRegistrationPaymentPage() {
             <Card className="p-6">
               <h2 className="font-medium mb-4 flex items-center gap-2">
                 <Lock size={18} className="text-[var(--accent)]" />
-                Payment Details
+                {totalPrice > 0 ? 'Payment Details' : 'Confirm Registration'}
               </h2>
 
               <form onSubmit={(e) => { e.preventDefault(); handleSubmitPayment(); }} className="space-y-4">
+                {totalPrice === 0 && (
+                  <p className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-green-500 text-sm">
+                    This registration is completely free — just confirm below and you&apos;re in. The organizer will verify your spot.
+                  </p>
+                )}
                 <div className="grid gap-4">
+                  {totalPrice > 0 && (
+                  <>
                   <div className="relative">
                     <label className="block text-sm font-medium mb-1.5">Transaction ID *</label>
                     <input
@@ -505,15 +642,22 @@ export default function EventRegistrationPaymentPage() {
                       </div>
                     )}
                   </div>
+                  </>
+                  )}
                 </div>
 
                 <Button
                   type="submit"
                   isLoading={submitting}
-                  disabled={!transactionId || !transactionMobile || !screenshotUrl || !selectedPaymentMethod}
+                  disabled={totalPrice > 0 && (!transactionId || !transactionMobile || !screenshotUrl || !selectedPaymentMethod)}
                   className="w-full gap-2"
                 >
-                  {isBkash ? (
+                  {totalPrice === 0 ? (
+                    <>
+                      <Check size={16} />
+                      Confirm Registration (Free)
+                    </>
+                  ) : isBkash ? (
                     <>
                       <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                         <circle cx="12" cy="12" r="10" fill="currentColor" />
@@ -560,14 +704,16 @@ export default function EventRegistrationPaymentPage() {
                 </div>
 
                 <div className="border-t border-[var(--border)] pt-3 space-y-2">
-                  {segments.map((seg: any) => (
-                    seg.segment && !seg.segment.is_free && (
-                      <div key={seg.id} className="flex items-center justify-between text-sm">
-                        <span className="text-[var(--muted)]">{seg.segment.title}</span>
-                        <span className="font-mono">BDT {parseFloat(seg.price_paid || 0).toLocaleString()}</span>
-                      </div>
-                    )
-                  ))}
+                  {segments
+                    .filter((seg) => seg.segment && selectedSegmentIds.includes(seg.segment_id))
+                    .map((seg) =>
+                      seg.segment && !seg.segment.is_free && (
+                        <div key={seg.id} className="flex items-center justify-between text-sm">
+                          <span className="text-[var(--muted)]">{seg.segment.title}</span>
+                          <span className="font-mono">BDT {parseFloat(String(seg.price_paid ?? 0)).toLocaleString()}</span>
+                        </div>
+                      )
+                    )}
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">

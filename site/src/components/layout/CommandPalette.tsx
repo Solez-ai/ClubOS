@@ -44,7 +44,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose })
 
           <Command.List className="max-h-[320px] overflow-y-auto p-2 scrollbar-none">
             <Command.Empty className="p-4 text-center text-xs text-[var(--muted)] font-mono">
-              No results found for "{search}".
+              No results found for &ldquo;{search}&rdquo;.
             </Command.Empty>
 
             <Command.Group heading="QUICK NAVIGATION" className="text-[10px] font-mono uppercase text-[var(--muted)] px-3 py-1.5 tracking-wider">

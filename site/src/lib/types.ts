@@ -110,8 +110,8 @@ export interface Registration {
   user_id: string;
   status: RegStatus;
   team_name?: string | null;
-  team_members?: any[];
-  answers?: Record<string, any>;
+  team_members?: unknown[];
+  answers?: Record<string, unknown>;
   ticket_code: string;
   checked_in_at?: string | null;
   checkin_method?: string | null;
@@ -209,7 +209,7 @@ export interface ActivityLog {
   event_id?: string | null;
   actor_id?: string | null;
   action: string;
-  meta: Record<string, any>;
+  meta: Record<string, unknown>;
   created_at: string;
   actor?: Profile;
   event?: Event;

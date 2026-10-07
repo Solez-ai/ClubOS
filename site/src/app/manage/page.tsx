@@ -13,9 +13,9 @@ import {
 import { createClient } from '@/lib/supabase/client';
 
 export default function ManagePage() {
-  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [registrations, setRegistrations] = useState<{ id: string; status: string; payment_status: string; total_price: number; ticket_code: string; payment_method?: string | null; transaction_id?: string | null; decline_reason?: string | null; organizer_note?: string | null; event: { id: string; title: string; slug: string; starts_at: string; venue: string | null; fest?: { id: string; title: string; slug: string } | null; segments?: { id: string; title: string }[] | null }; registration_segments?: { id: string; segment?: { id: string; title: string } | null }[] | null }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   const supabase = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       console.warn('Supabase credentials not configured');
@@ -213,7 +213,7 @@ export default function ManagePage() {
                       {/* Registration Segments */}
                       {reg.registration_segments && reg.registration_segments.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-3">
-                          {reg.registration_segments.map((seg: any) => (
+                          {reg.registration_segments.map((seg) => (
                             seg.segment && (
                               <span
                                 key={seg.id}
@@ -279,7 +279,7 @@ export default function ManagePage() {
                       <div className="flex items-start justify-between gap-4 mb-3">
                         <div className="flex items-center gap-2">
                           <span className="line-through text-[var(--muted)]">
-                            {reg.event?.title || 'Unknown Event'}
+                            {reg.event?.title ?? 'Unknown Event'}
                           </span>
                           {reg.status === 'cancelled' && (
                             <X size={14} className="text-red-500" />
@@ -298,7 +298,7 @@ export default function ManagePage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 text-sm text-[var(--muted)]">
+                      <div className="grid grid-cols-2 gap-4 text-sm text-[var(--muted)] mb-3">
                         <div className="flex items-center gap-2">
                           <Calendar size={12} />
                           {reg.event?.starts_at ? formatDate(reg.event.starts_at) : 'TBA'}
@@ -309,17 +309,56 @@ export default function ManagePage() {
                         </div>
                       </div>
 
+                      {/* Payment Info */}
+                      {reg.total_price > 0 && (
+                        <div className="p-3 bg-[var(--surface-2)] rounded-lg mb-3 grayscale">
+                          <div className="flex items-center gap-2 text-sm mb-1">
+                            <Wallet size={12} className="text-[var(--muted)]" />
+                            <span className="text-[var(--muted)]">Payment Status:</span>
+                            <span className="font-medium capitalize text-[var(--muted)]">
+                              {reg.payment_status}
+                            </span>
+                          </div>
+                          {reg.payment_method && (
+                            <div className="text-xs text-[var(--muted)]">
+                              Paid via: {reg.payment_method?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                            </div>
+                          )}
+                          {reg.transaction_id && (
+                            <div className="text-xs text-[var(--muted)] font-mono mt-1">
+                              Transaction ID: {reg.transaction_id}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Registration Segments */}
+                      {reg.registration_segments && reg.registration_segments.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {reg.registration_segments.map((seg) => (
+                            seg.segment && (
+                              <span
+                                key={seg.id}
+                                className="px-2 py-0.5 rounded text-xs bg-[var(--surface-2)] text-[var(--muted)]"
+                              >
+                                {seg.segment.title}
+                              </span>
+                            )
+                          ))}
+                        </div>
+                      )}
+
                       {reg.decline_reason && (
-                        <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                          <p className="text-xs text-red-500 font-medium mb-1">Decline Reason</p>
-                          <p className="text-sm text-[var(--text)]">{reg.decline_reason}</p>
+                        <div className="mt-3 p-3 bg-[var(--surface-2)] border border-[var(--border)] rounded-lg">
+                          <p className="text-xs text-[var(--muted)] font-medium mb-1">Decline Reason</p>
+                          <p className="text-sm text-[var(--muted)]">{reg.decline_reason}</p>
                         </div>
                       )}
 
                       {reg.organizer_note && (
-                        <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                          <p className="text-xs text-yellow-500 font-medium mb-1">Organizer Note</p>
-                          <p className="text-sm text-[var(--text)]">{reg.organizer_note}</p>
+                        <div className="mt-3 p-3 bg-[var(--surface-2)] border border-[var(--border)] rounded-lg">
+                          <p className="text-xs text-[var(--muted)] font-medium mb-1">Organizer Note</p>
+                          <p className="text-sm text-[var(--muted)]">{reg.organizer_note}</p>
                         </div>
                       )}
                     </div>
@@ -348,7 +387,7 @@ export default function ManagePage() {
             </div>
             <h2 className="font-serif text-2xl mb-2">No Registrations Yet</h2>
             <p className="text-[var(--muted)] mb-6">
-              You haven't registered for any events yet. Browse events and register to start your journey!
+              You haven&apos;t registered for any events yet. Browse events and register to start your journey!
             </p>
             <Link href="/events">
               <Button>Explore Events</Button>

@@ -6,7 +6,13 @@ import { Footer } from '@/components/layout/Footer';
 import { Eyebrow } from '@/components/ui/Eyebrow';
 import { EventCard } from '@/components/cards/EventCard';
 import { createClient } from '@/lib/supabase/client';
+import { Event, CategoryTag } from '@/lib/types';
 import { Search, Filter, SlidersHorizontal, X, Calendar, Tag } from 'lucide-react';
+
+type EventWithStatus = Event & {
+  tags_list?: string[];
+  event_tags?: { tag_id: string }[] | null;
+};
 
 // All available category tags for filtering
 const ALL_CATEGORIES = [
@@ -28,8 +34,8 @@ const ALL_CATEGORIES = [
 ];
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<any[]>([]);
-  const [tags, setTags] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventWithStatus[]>([]);
+  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = React.useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -46,7 +52,7 @@ export default function EventsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,29 +62,41 @@ export default function EventsPage() {
       const { data: authData } = await supabase.auth.getUser();
       if (authData?.user) setUser(authData.user);
 
-      // Fetch events with fest and segments
+      // Fetch events with fest, segments and tags
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select(`
           *,
           fest:fest_id(*),
           segments(*),
-          tags_data:search:public.category_tags(*),
+          tags_data:event_tags(tag:category_tags(id, name, color)),
           event_tags(tag_id)
         `)
         .order('starts_at', { ascending: true });
 
       if (eventsError) {
         console.error('Error fetching events:', eventsError);
+        setEvents([]);
       } else {
-        setEvents(eventsData || []);
+        // Flatten the nested tag embed into the shape the UI expects
+        const rows = (eventsData || []) as Array<Omit<Event, 'tags_data'> & { tags_data?: { tag: CategoryTag | null }[] | null }>;
+        setEvents(rows.map(({ tags_data, ...rest }) => ({
+          ...rest,
+          tags_data: (tags_data || []).map((t) => t.tag).filter((t): t is CategoryTag => Boolean(t)),
+        })));
       }
 
       // Fetch category tags
       const { data: tagsData } = await supabase
         .from('category_tags')
         .select('*')
-        .order('name');
+        .order('name', { ascending: true });
+
+      if (tagsData && Array.isArray(tagsData)) {
+        setTags(tagsData);
+      } else {
+        setTags([]);
+      }
 
       if (tagsData) setTags(tagsData);
 
@@ -103,24 +121,20 @@ export default function EventsPage() {
         is_open: now >= startsAt && now <= deadline && hasCapacity,
         is_full: spotsLeft !== null && spotsLeft <= 0,
         closing_soon: (deadline.getTime() - now.getTime()) < 7 * 24 * 60 * 60 * 1000 && deadline > now,
-        spots_left: spotsLeft,
-        tags_list: e.event_tags?.map((et: any) => et.tag_id) || [],
+        spots_left: spotsLeft,          tags_list: e.event_tags?.map((et: { tag_id: string }) => et.tag_id) || [],
       };
     });
   }, [events]);
 
   const filteredEvents = useMemo(() => {
-    const now = new Date();
-
-    return eventsWithStatus.filter((e: any) => {
+    const now = new Date();        return eventsWithStatus.filter((e) => {
       // Search filter
       if (search) {
         const searchLower = search.toLowerCase();
         const matchesSearch =
           e.title?.toLowerCase().includes(searchLower) ||
           e.description?.toLowerCase().includes(searchLower) ||
-          e.tags?.some((t: string) => t.toLowerCase().includes(searchLower)) ||
-          (e.tags_data || []).some((t: any) => t.name?.toLowerCase().includes(searchLower));
+          e.tags?.some((t: string) => t.toLowerCase().includes(searchLower)) ||            (e.tags_data || []).some((t: { name?: string }) => t.name?.toLowerCase().includes(searchLower));
         if (!matchesSearch) return false;
       }
 
@@ -132,8 +146,7 @@ export default function EventsPage() {
       // Tag filters
       if (selectedTags.length > 0) {
         const hasTag = selectedTags.some(tagId =>
-          e.tags_list?.includes(tagId) ||
-          (e.tags_data || []).some((t: any) => t.id === tagId)
+          e.tags_list?.includes(tagId) ||            (e.tags_data || []).some((t: { id: string }) => t.id === tagId)
         );
         if (!hasTag) return false;
       }

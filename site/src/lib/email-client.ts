@@ -30,8 +30,7 @@ export async function notifyRegistrationEmail(
       return false;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await res.json().catch(() => ({ success: false } as any));
+    const data = (await res.json().catch(() => ({ success: false }))) as { success?: boolean } | null;
     return Boolean(data?.success);
   } catch (err) {
     console.warn('[email-client] request error:', err);

@@ -17,12 +17,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    const stored = localStorage.getItem('theme') as Theme | null;
-    const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-    const initial = stored || (prefersLight ? 'light' : 'dark');
-    setThemeState(initial);
-    document.documentElement.setAttribute('data-theme', initial);
+    // Sync theme from localStorage after mount. Deferred to a macrotask so the
+    // effect body itself never calls setState synchronously (React lint rule:
+    // react-hooks/set-state-in-effect — cascading renders).
+    const timer = setTimeout(() => {
+      const stored = localStorage.getItem('theme') as Theme | null;
+      const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+      const initial = stored || (prefersLight ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', initial);
+      setThemeState(initial);
+      setMounted(true);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const setTheme = useCallback((newTheme: Theme) => {
@@ -35,7 +42,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   }, [theme, setTheme]);
 
-  // Prevent flash of wrong theme
   if (!mounted) {
     return (
       <ThemeContext.Provider value={{ theme: 'dark', toggleTheme, setTheme }}>

@@ -1,16 +1,111 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   getAdminClient,
   sendRegistrationConfirmation,
   sendPaymentVerified,
   sendPaymentDecline,
+  shell,
+  esc,
 } from '@/lib/email';
+
+import { Resend } from 'resend';
+
+// Quick self-test endpoint: POST /api/notifications/email/test
+// Sends a branded sample email to the address in the JSON body.
+// Use it once after deploying to confirm RESEND_API_KEY works in Vercel.
+async function sendTestEmail(to: string, apiKey: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+  if (!apiKey) {
+    return { ok: false, error: 'RESEND_API_KEY is not configured on this deployment.' };
+  }
+
+  const resend = new Resend(apiKey);
+
+  const FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'ClubOS <onboarding@resend.dev>';
+  const subject = 'ClubOS test email — if you see this, Resend is wired up';
+  const bodyHtml = `
+    <div class="animate-in delay-1">
+      <div class="eyebrow">It works</div>
+      <h1>Your first ClubOS email is live</h1>
+      <p class="lead">
+        This is a branded test email. Resend is now configured, so real registration,
+        payment verification, and decline emails will start going out with the ClubOS look and motion.
+      </p>
+    </div>
+
+    <div class="animate-in delay-2">
+      <div class="panel">
+        <div class="panel-row">
+          <span class="panel-label">To</span>
+          <span class="panel-value">${esc(to)}</span>
+        </div>
+        <div class="panel-row">
+          <span class="panel-label">From</span>
+          <span class="panel-value">${esc(FROM_ADDRESS)}</span>
+        </div>
+        <div class="panel-row">
+          <span class="panel-label">Sent from</span>
+          <span class="panel-value">Vercel deployment</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject,
+      text: 'ClubOS test email — Resend is wired up.',
+      html: shell({
+        subject,
+        bodyHtml,
+        preheader: 'ClubOS test email — Resend is wired up.',
+      }),
+    });
+
+    if (error) {
+      return { ok: false, error: error.message || 'Resend send failed' };
+    }
+
+    return { ok: true, id: data?.id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Unexpected error sending test email' };
+  }
+}
 
 // In-memory replay guard: only one email per (type, registration) per server instance.
 // Serverless instances are ephemeral, so this is best-effort — but it stops casual abuse.
 const sentKeys = new Set<string>();
 
 export async function POST(request: Request) {
+  // Dedicated test endpoint
+  if (request.url.endsWith('/test')) {
+    try {
+      const body = await request.json().catch(() => null);
+      const to = body?.to as string | undefined;
+
+      if (!to || !to.includes('@')) {
+        return NextResponse.json(
+          { error: 'Missing or invalid field: to (email address required)' },
+          { status: 400 }
+        );
+      }
+
+      const apiKey = process.env.RESEND_API_KEY;
+      const result = await sendTestEmail(to, apiKey || '');
+
+      if (!result.ok) {
+        return NextResponse.json(
+          { ok: false, error: result.error },
+          { status: result.error?.includes('not configured') ? 503 : 400 }
+        );
+      }    return NextResponse.json({ ok: true, id: result.id });
+  } catch (err) {
+      console.error('[email-test] failed:', err);
+      return NextResponse.json({ error: 'Test email failed' }, { status: 500 });
+    }
+  }
+
   try {
     const admin = getAdminClient();
     if (!admin) {
@@ -41,8 +136,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch the real registration server-side — the client never supplies email content.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: reg, error } = await (admin as any)
+    const { data: reg, error } = await admin
       .from('registrations')
       .select(
         `
@@ -55,7 +149,7 @@ export async function POST(request: Request) {
       .eq('id', registrationId)
       .single();
 
-    if (error || !reg) {
+    if (error || !reg || !reg.profile) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
     }
 
@@ -64,13 +158,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Registration has no participant email' }, { status: 400 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const event: any = reg.event || {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fest: any = event.fest || {};
-    const eventTitle = event.title || 'Event';
-    const festTitle = fest.title;
-    const organizationName = fest.org?.name;
+    const event = reg.event ?? {};
+    const fest = event.fest ?? {};
+    const eventTitle = event.title ?? 'Event';
+    const festTitle = fest.title ?? undefined;
+    const organizationName = fest.org?.name ?? undefined;
 
     let sent = false;
 
@@ -81,11 +173,10 @@ export async function POST(request: Request) {
         organizationName,
         ticketCode: reg.ticket_code || '',
         registrationDate: new Date(reg.created_at || Date.now()).toLocaleString('en-BD'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        segments: (reg.registration_segments || []).map((rs: any) => ({
-          title: rs.segments?.title || 'Segment',
+        segments: (reg.registration_segments ?? []).map((rs: { segments?: { title?: string; price?: number; is_free?: boolean } | null }) => ({
+          title: rs.segments?.title ?? 'Segment',
           isFree: rs.segments?.is_free ?? true,
-          price: rs.segments?.price || 0,
+          price: rs.segments?.price ?? 0,
         })),
         totalPrice: reg.total_price || 0,
         paymentMethod: reg.payment_method,

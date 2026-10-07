@@ -6,9 +6,10 @@ import { Footer } from '@/components/layout/Footer';
 import { Eyebrow } from '@/components/ui/Eyebrow';
 import { FestCard } from '@/components/cards/FestCard';
 import { createClient } from '@/lib/supabase/client';
+import { Fest } from '@/lib/types';
 
 export default function FestsPage() {
-  const [fests, setFests] = useState<any[]>([]);
+  const [fests, setFests] = useState<Fest[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = React.useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -36,11 +37,7 @@ export default function FestsPage() {
     };
 
     fetchData();
-  }, [supabase]);
-
-  const ongoingFests = fests.filter((f: any) => new Date(f.start_date) <= new Date() && new Date(f.end_date) >= new Date());
-  const upcomingFests = fests.filter((f: any) => new Date(f.start_date) > new Date());
-  const pastFests = fests.filter((f: any) => new Date(f.end_date) < new Date());
+  }, [supabase]);          const ongoingFests = fests.filter((f) => new Date(f.start_date) <= new Date() && new Date(f.end_date) >= new Date());          const upcomingFests = fests.filter((f) => new Date(f.start_date) > new Date());          const pastFests = fests.filter((f) => new Date(f.end_date) < new Date());
 
   if (loading) {
     return (

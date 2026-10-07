@@ -123,8 +123,8 @@ export default function CreateOrganizationPage() {
       setTimeout(() => {
         router.push('/organizer');
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create organization');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create organization');
       setLoading(false);
     }
   };
@@ -219,7 +219,7 @@ export default function CreateOrganizationPage() {
                   className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
                 />
                 <p className="text-xs text-[var(--muted)] mt-1">
-                  Provide a URL to your organization's logo
+                  Provide a URL to your organization&apos;s logo
                 </p>
               </div>
 

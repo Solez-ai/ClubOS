@@ -53,10 +53,7 @@ export const Navbar: React.FC = () => {
     };
   }, []);
 
-  // Close the mobile menu whenever the route changes
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
+
 
   useEffect(() => {
     const handleScroll = () => {

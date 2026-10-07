@@ -11,15 +11,58 @@ import { Card } from '@/components/ui/Card';
 import { Stamp } from '@/components/ui/Stamp';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { createClient } from '@/lib/supabase/client';
+import { RegStatus } from '@/lib/types';
 import { Calendar, MapPin } from 'lucide-react';
+
+interface FestRow {
+  id: string;
+  title: string;
+  slug: string;
+  venue: string | null;
+  start_date: string;
+  end_date: string;
+  description: string | null;
+  google_maps_url: string | null;
+  cover_url: string | null;
+  tagline: string | null;
+}
+
+interface FestEventRow {
+  id: string;
+  title: string;
+  slug: string;
+  venue: string | null;
+  starts_at: string;
+  is_published: boolean;
+  fest_id: string;
+}
+
+interface RegRow {
+  id: string;
+  status: RegStatus;
+  event: {
+    title: string;
+    venue: string | null;
+    starts_at: string;
+    slug: string;
+  } | null;
+}
+
+interface StampRow {
+  id: string;
+  kind: 'event' | 'fest';
+  earned_at: string;
+  event: { title: string } | null;
+  fest_id: string;
+}
 
 export default function FestPassPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const [fest, setFest] = useState<any>(null);
-  const [festEvents, setFestEvents] = useState<any[]>([]);
-  const [myRegs, setMyRegs] = useState<any[]>([]);
-  const [myStamps, setMyStamps] = useState<any[]>([]);
+  const [fest, setFest] = useState<FestRow | null>(null);
+  const [festEvents, setFestEvents] = useState<FestEventRow[]>([]);
+  const [myRegs, setMyRegs] = useState<RegRow[]>([]);
+  const [myStamps, setMyStamps] = useState<StampRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -38,53 +81,56 @@ export default function FestPassPage() {
         return;
       }
 
-      const { data: festData } = await supabase
-        .from('fests')
-        .select('*')
-        .eq('slug', slug)
-        .single();
+      try {
+        const { data: festData } = await supabase
+          .from('fests')
+          .select('*')
+          .eq('slug', slug)
+          .single();
 
-      if (!festData) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-      setFest(festData);
-
-      const { data: eventsData } = await supabase
-        .from('events')
-        .select('*')
-        .eq('fest_id', festData.id)
-        .eq('is_published', true)
-        .order('starts_at', { ascending: true });
-      setFestEvents(eventsData || []);
-
-      // If signed in, load this user's registrations and stamps for this fest
-      const { data: authData } = await supabase.auth.getUser();
-      if (authData?.user) {
-        setIsLoggedIn(true);
-
-        const eventIds = (eventsData || []).map((e: any) => e.id);
-        if (eventIds.length > 0) {
-          const { data: regsData } = await supabase
-            .from('registrations')
-            .select('*, event:events(*)')
-            .eq('user_id', authData.user.id)
-            .in('event_id', eventIds)
-            .order('created_at', { ascending: false });
-          setMyRegs(regsData || []);
+        if (!festData) {
+          setNotFound(true);
+          return;
         }
+        setFest(festData as FestRow);
 
-        const { data: stampsData } = await supabase
-          .from('stamps')
-          .select('*, event:events(title)')
-          .eq('user_id', authData.user.id)
+        const { data: eventsData } = await supabase
+          .from('events')
+          .select('*')
           .eq('fest_id', festData.id)
-          .order('earned_at', { ascending: false });
-        setMyStamps(stampsData || []);
-      }
+          .eq('is_published', true)
+          .order('starts_at', { ascending: true });
+        setFestEvents((eventsData as FestEventRow[]) || []);
 
-      setLoading(false);
+        // If signed in, load this user's registrations and stamps for this fest
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user) {
+          setIsLoggedIn(true);
+
+          const eventIds = ((eventsData as FestEventRow[]) || []).map((e) => e.id);
+          if (eventIds.length > 0) {
+            const { data: regsData } = await supabase
+              .from('registrations')
+              .select('*, event:events(*)')
+              .eq('user_id', authData.user.id)
+              .in('event_id', eventIds)
+              .order('created_at', { ascending: false });
+            setMyRegs((regsData as RegRow[]) || []);
+          }
+
+          const { data: stampsData } = await supabase
+            .from('stamps')
+            .select('*, event:events(title)')
+            .eq('user_id', authData.user.id)
+            .eq('fest_id', festData.id)
+            .order('earned_at', { ascending: false });
+          setMyStamps((stampsData as StampRow[]) || []);
+        }
+      } catch (err) {
+        console.error('Failed to load fest data:', err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     load();

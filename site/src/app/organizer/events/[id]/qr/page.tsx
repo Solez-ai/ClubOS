@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 export default function VenueQRPage() {
   const params = useParams();
   const eventId = params.id as string;
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<{ id: string; title: string; venue: string | null; checkin_token: string; fest?: { id: string; title: string } | null } | null>(null);
   const [checkedIn, setCheckedIn] = useState(0);
   const [token, setToken] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(30);
@@ -39,7 +39,11 @@ export default function VenueQRPage() {
         .eq('id', eventId)
         .single();
 
-      setEvent(eventData);
+      if (eventData && typeof eventData === 'object') {
+        setEvent(eventData as { id: string; title: string; venue: string | null; checkin_token: string; fest?: { id: string; title: string } | null });
+      } else {
+        setEvent(null);
+      }
 
       if (eventData) {
         const { count } = await supabase
@@ -47,7 +51,7 @@ export default function VenueQRPage() {
           .select('id', { count: 'exact', head: true })
           .eq('event_id', eventData.id)
           .not('checked_in_at', 'is', null);
-        setCheckedIn(count || 0);
+        setCheckedIn(typeof count === 'number' ? count : 0);
       }
 
       setLoading(false);

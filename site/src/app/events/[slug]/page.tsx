@@ -14,19 +14,20 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { notifyRegistrationEmail } from '@/lib/email-client';
+import { Event, CategoryTag } from '@/lib/types';
 
 export default function EventDetailPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
 
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [user, setUser] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ id: string; full_name: string; phone: string | null } | null>(null);
   const [hasRegistered, setHasRegistered] = useState(false);
 
   const supabase = useMemo(() => {
@@ -61,7 +62,7 @@ export default function EventDetailPage() {
           fest:fest_id(*),
           segments(*),
           event_tags(tag_id),
-          tags_data:search:public.category_tags(!event_tags!id)
+          tags_data:event_tags(tag:category_tags(id, name, color))
         `)
         .eq('slug', slug)
         .single();
@@ -69,8 +70,14 @@ export default function EventDetailPage() {
       if (eventError) {
         console.error('Error fetching event:', eventError);
         setError('Event not found');
-      } else {
-        setEvent(eventDataRaw as any);
+      } else if (eventDataRaw) {
+        // Flatten the nested tag embed ({ tag: {...} }) into the shape the UI expects
+        const raw = eventDataRaw as Event;
+        const tagRows = (eventDataRaw as { tags_data?: { tag: CategoryTag | null }[] | null }).tags_data;
+        setEvent({
+          ...raw,
+          tags_data: (tagRows || []).map((t) => t.tag).filter((t): t is CategoryTag => Boolean(t)),
+        });
       }
 
       // Check if user already registered
@@ -78,7 +85,7 @@ export default function EventDetailPage() {
         const { data: reg } = await supabase
           .from('registrations')
           .select('id, status')
-          .eq('event_id', (eventDataRaw as any).id)
+          .eq('event_id', eventDataRaw?.id)
           .eq('user_id', authData.user.id)
           .single();
 
@@ -106,7 +113,7 @@ export default function EventDetailPage() {
           event_id: event.id,
           user_id: user.id,
           status: 'pending',
-          total_price: event.segments?.reduce((sum: number, seg: any) => sum + (seg.is_free ? 0 : seg.price), 0) || 0,
+          total_price: event.segments?.reduce((sum: number, seg) => sum + (seg.is_free ? 0 : seg.price), 0) || 0,
           payment_status: 'pending',
         })
         .select()
@@ -141,14 +148,14 @@ export default function EventDetailPage() {
       }
 
       // Redirect to payment if there's a paid segment
-      const hasPaidSegments = event.segments?.some((s: any) => !s.is_free);
+      const hasPaidSegments = event.segments?.some((s) => !s.is_free);
       if (hasPaidSegments) {
         setTimeout(() => {
           router.push(`/events/${slug}/register`);
         }, 2000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to register');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to register');
       setRegistering(false);
     }
   };
@@ -169,17 +176,17 @@ export default function EventDetailPage() {
     });
   };
 
-  const getPriceLabel = (event: any) => {
-    const hasPaidSegments = event.segments?.some((s: any) => !s.is_free);
+  const getPriceLabel = (ev: Pick<Event, 'segments'>) => {
+    const hasPaidSegments = ev.segments?.some((s) => !s.is_free);
     if (!hasPaidSegments) return 'Free';
-    const total = event.segments?.reduce((sum: number, s: any) => sum + (s.is_free ? 0 : s.price), 0) || 0;
+    const total = ev.segments?.reduce((sum: number, s) => sum + (s.is_free ? 0 : s.price), 0) || 0;
     return `BDT ${total.toLocaleString()}`;
   };
 
-  const getPaymentMethods = (event: any) => {
+  const getPaymentMethods = (ev: Pick<Event, 'segments'>) => {
     const methods = new Set<string>();
-    event.segments?.forEach((s: any) => {
-      if (!s.is_free) {
+    ev.segments?.forEach((s) => {
+      if (!s.is_free && s.payment_method) {
         methods.add(s.payment_method);
       }
     });
@@ -203,7 +210,7 @@ export default function EventDetailPage() {
         <div className="text-center">
           <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
           <h1 className="font-serif text-2xl mb-2">Event Not Found</h1>
-          <p className="text-[var(--muted)] mb-4">The event you're looking for doesn't exist or has been removed.</p>
+          <p className="text-[var(--muted)] mb-4">The event you&apos;re looking for doesn&apos;t exist or has been removed.</p>
           <Link href="/events">
             <Button>Back to Events</Button>
           </Link>
@@ -212,7 +219,7 @@ export default function EventDetailPage() {
     );
   }
 
-  const isFull = event.spots_left !== null && event.spots_left <= 0;
+  const isFull = event.spots_left != null && event.spots_left <= 0;
   const isClosed = new Date() > new Date(event.registration_deadline) || new Date() < new Date(event.registration_opens_at);
   const isPast = new Date(event.starts_at) < new Date();
 
@@ -246,7 +253,7 @@ export default function EventDetailPage() {
           <div className="flex flex-col gap-4">
             {/* Tags */}
             <div className="flex flex-wrap gap-2">
-              {event.tags_data?.map((tag: any) => (
+              {event.tags_data?.map((tag) => (
                 <span
                   key={tag.id}
                   className="px-3 py-1 rounded-full text-xs font-medium"
@@ -280,9 +287,6 @@ export default function EventDetailPage() {
               )}
             </div>
 
-            {event.tagline && (
-              <p className="text-lg text-[var(--muted)]">{event.tagline}</p>
-            )}
           </div>
         </div>
 
@@ -327,7 +331,7 @@ export default function EventDetailPage() {
                   Segments ({event.segments.length})
                 </h2>
                 <div className="flex flex-col gap-4">
-                  {event.segments.map((seg: any) => (
+                  {event.segments.map((seg) => (
                     <div
                       key={seg.id}
                       className="p-4 bg-[var(--surface)] rounded-lg border border-[var(--border)]"
@@ -482,14 +486,14 @@ export default function EventDetailPage() {
                     <div
                       className={`h-full rounded-full transition-all ${
                         event.is_full ? 'bg-red-500' :
-                        event.spots_left !== null && event.spots_left < event.capacity * 0.2 ? 'bg-yellow-500' :
+                        event.spots_left != null && event.spots_left < event.capacity * 0.2 ? 'bg-yellow-500' :
                         'bg-[var(--accent)]'
                       }`}
                       style={{ width: `${Math.min(100, ((event.confirmed_count || 0) / event.capacity) * 100)}%` }}
                     />
                   </div>
                 )}
-                {event.spots_left !== null && (
+                {event.spots_left != null && (
                   <p className="text-xs text-[var(--muted)] mt-2">
                     {event.spots_left} spots left
                   </p>
@@ -515,9 +519,9 @@ export default function EventDetailPage() {
               </div>
 
               {/* Price */}
-              <div className={`p-4 rounded-lg text-center ${event.segments?.every((s: any) => s.is_free) ? 'bg-green-500/10' : 'bg-[var(--surface-2)]'}`}>
+              <div className={`p-4 rounded-lg text-center $                {event.segments?.every((s) => s.is_free) ? 'bg-green-500/10' : 'bg-[var(--surface-2)]'}`}>
                 <p className="text-sm text-[var(--muted)] mb-1">Total Price</p>
-                <p className={`text-2xl font-bold ${event.segments?.every((s: any) => s.is_free) ? 'text-green-500' : 'text-[var(--text)]'}`}>
+                <p className={`text-2xl font-bold ${event.segments?.every((s) => s.is_free) ? 'text-green-500' : 'text-[var(--text)]'}`}>
                   {getPriceLabel(event)}
                 </p>
                 {getPaymentMethods(event).length > 0 && (
@@ -532,7 +536,7 @@ export default function EventDetailPage() {
                 hasRegistered ? (
                   <div className="text-center">
                     <Check size={24} className="mx-auto mb-2 text-green-500" />
-                    <p className="text-sm font-medium">You're Registered!</p>
+                    <p className="text-sm font-medium">You&apos;re Registered!</p>
                     <p className="text-xs text-[var(--muted)]">Check your email for confirmation</p>
                   </div>
                 ) : isClosed ? (
@@ -546,7 +550,7 @@ export default function EventDetailPage() {
                     disabled={isFull || isClosed}
                     className="w-full gap-2"
                   >
-                    {event.segments?.every((s: any) => s.is_free) ? (
+                    {event.segments?.every((s) => s.is_free) ? (
                       'Register Now'
                     ) : (
                       <>

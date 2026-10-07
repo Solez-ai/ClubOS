@@ -386,7 +386,7 @@ export default function SignUpPage() {
               </p>
             </div>
 
-            {renderStep1()}
+            {step === 1 ? renderStep1() : renderStep2()}
           </div>
 
           {/* Right: Visual / Info */}
@@ -436,7 +436,7 @@ export default function SignUpPage() {
               <div className="p-6 rounded-2xl bg-[var(--surface)] border border-[var(--border)]">
                 <h3 className="font-medium mb-2">What happens next?</h3>
                 <p className="text-sm text-[var(--muted)] mb-4">
-                  After creating your account, you'll be able to:
+                  After creating your account, you&apos;ll be able to:
                 </p>
                 <div className="space-y-3 text-sm">
                   {role === 'participant' ? (

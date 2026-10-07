@@ -14,7 +14,7 @@ import { Stamp } from '@/components/ui/Stamp';
 export default function ScanPage() {
   const [manualCode, setManualCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [scanResult, setScanResult] = useState<any>(null);
+  const [scanResult, setScanResult] = useState<{ kind: 'event' | 'fest'; title: string; xpGained: number; stampId: string; message: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSimulateScan = (codeToTest: string) => {
