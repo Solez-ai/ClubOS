@@ -18,6 +18,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  // Pickup notice passed from signup (e.g. "confirm your email first").
+  useEffect(() => {
+    const n = new URLSearchParams(window.location.search).get('notice');
+    if (!n) return;
+    const t = setTimeout(() => {
+      setNotice(n);
+      window.history.replaceState(null, '', window.location.pathname);
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   const supabase = React.useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -69,7 +81,11 @@ export default function LoginPage() {
       });
 
       if (authErr) {
-        setError(authErr.message);
+        setError(
+          /not confirmed/i.test(authErr.message)
+            ? 'Please confirm your email first — check your inbox for the confirmation link.'
+            : authErr.message
+        );
         setIsLoading(false);
         return;
       }
@@ -100,6 +116,11 @@ export default function LoginPage() {
         </div>
 
         <Card className="flex flex-col gap-5 p-6">
+          {notice && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-600 dark:text-emerald-400 text-sm">
+              {notice}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input label="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />

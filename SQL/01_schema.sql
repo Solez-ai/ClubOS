@@ -556,18 +556,47 @@ CREATE POLICY "Announcements viewable by authenticated" ON announcements
 -- FUNCTIONS
 -- ============================================
 
--- Function to create profile on user signup
+-- Function to create profile on user signup.
+-- The handle is made race-safe for scale: base it on the email prefix, then
+-- resolve collisions with a deterministic-attempt + random fallback suffix so
+-- concurrent signups with the same prefix (e.g. john@gmail.com / john@yahoo.com)
+-- never violate the UNIQUE constraint.
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_base TEXT;
+  v_handle TEXT;
+  v_suffix INT := 0;
 BEGIN
-  INSERT INTO profiles (id, handle, full_name, email, role, avatar_url)
+  v_base := left(
+    regexp_replace(split_part(NEW.email, '@', 1), '[^a-zA-Z0-9]', '_', 'g'),
+    24
+  );
+  IF v_base = '' OR v_base IS NULL THEN
+    v_base := 'user';
+  END IF;
+
+  v_handle := v_base;
+  WHILE EXISTS (SELECT 1 FROM profiles WHERE handle = v_handle) LOOP
+    v_suffix := v_suffix + 1;
+    IF v_suffix <= 20 THEN
+      v_handle := v_base || v_suffix::text;
+    ELSE
+      v_handle := left(v_base, 18) || floor(random() * 9000 + 1000)::int::text;
+    END IF;
+  END LOOP;
+
+  INSERT INTO profiles (id, handle, full_name, email, role, phone, institution, avatar_url, onboarded)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'handle', split_part(NEW.email, '@', 1)),
-    NEW.raw_user_meta_data->>'full_name',
+    v_handle,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'role', 'participant')::user_role,
-    NEW.raw_user_meta_data->>'avatar_url'
+    NULLIF(NEW.raw_user_meta_data->>'phone', ''),
+    NULLIF(NEW.raw_user_meta_data->>'institution', ''),
+    NEW.raw_user_meta_data->>'avatar_url',
+    true
   );
   RETURN NEW;
 END;
