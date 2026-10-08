@@ -19,7 +19,7 @@ const readEnv = (k) => {
   return m ? m[1].trim() : '';
 };
 
-const BASE = process.env.BASE_URL || 'https://site-weld-mu-16.vercel.app';
+const BASE = process.env.BASE_URL || 'https://club-os-solez.vercel.app';
 const SUPA = readEnv('NEXT_PUBLIC_SUPABASE_URL');
 const SKEY = readEnv('SUPABASE_SERVICE_ROLE_KEY');
 const OUT = fileURLToPath(new URL('../../docs/screenshots/', import.meta.url));

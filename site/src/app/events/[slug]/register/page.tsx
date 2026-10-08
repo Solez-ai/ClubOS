@@ -12,6 +12,7 @@ import {
   Loader2, Smartphone, CreditCard
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { resolveSlugFilter } from '@/lib/slug';
 
 // BKash pink color: #F74C3C or #E91E63
 // Nagad orange/yellow: #F59E0B or #FF9800
@@ -104,7 +105,7 @@ export default function EventRegistrationPaymentPage() {
         .from('events')
         .select('*, segments(*)')
         // Resolve by slug OR id so dashboard links (ids) work too.
-        .or(`slug.eq.${slug},id.eq.${slug}`)
+        .or(resolveSlugFilter(slug))
         .single();
 
       if (!eventData) {

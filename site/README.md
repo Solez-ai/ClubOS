@@ -170,4 +170,4 @@ Signup e2e specs live in `playwright/signup.spec.ts`; they cover the single-page
 
 ## 10. Deployment
 
-Deployed on Vercel: https://site-weld-mu-16.vercel.app. Environment variables required in Vercel Project Settings: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `CHECKIN_HMAC_SECRET`, and optionally `RESEND_API_KEY` + `EMAIL_FROM_ADDRESS`.
+Deployed on Vercel: https://club-os-solez.vercel.app. Environment variables required in Vercel Project Settings: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `CHECKIN_HMAC_SECRET`, and optionally `RESEND_API_KEY` + `EMAIL_FROM_ADDRESS`.

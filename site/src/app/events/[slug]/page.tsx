@@ -13,6 +13,7 @@ import {
   Lock, Unlock, Check, AlertCircle, ExternalLink, Timer
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { resolveSlugFilter } from '@/lib/slug';
 import { notifyRegistrationEmail } from '@/lib/email-client';
 import { Event, CategoryTag } from '@/lib/types';
 
@@ -65,8 +66,10 @@ export default function EventDetailPage() {
           tags_data:event_tags(tag:category_tags(id, name, color))
         `)
         // Resolve by slug OR id so organizer dashboard links (which use ids)
-        // and shared public links (which use slugs) both work.
-        .or(`slug.eq.${slug},id.eq.${slug}`)
+        // and shared public links (which use slugs) both work. The helper only
+        // combines slug+id for UUID-shaped values — PostgREST otherwise casts
+        // the value to uuid for the id clause and the whole query errors.
+        .or(resolveSlugFilter(slug))
         .single();
 
       if (eventError) {

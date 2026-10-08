@@ -77,7 +77,7 @@ To deploy to Vercel, import the repository, add the environment variables above 
 
 ## 6. Deployment URL
 
-Live production deployment: https://site-weld-mu-16.vercel.app
+Live production deployment: https://club-os-solez.vercel.app
 
 Source repository: https://github.com/Solez-ai/ClubOS (branch: main)
 
@@ -117,7 +117,7 @@ All AI assistance was in the development toolchain only. No AI APIs or model cal
 
 ## 10. Screenshots
 
-A visual walkthrough of the live platform, captured from https://site-weld-mu-16.vercel.app using the demo accounts from Section 7. The tour alternates between dark and light mode as it moves through the product, so judges can see both themes. Full-resolution captures live in [`docs/screenshots`](docs/screenshots).
+A visual walkthrough of the live platform, captured from https://club-os-solez.vercel.app using the demo accounts from Section 7. The tour alternates between dark and light mode as it moves through the product, so judges can see both themes. Full-resolution captures live in [`docs/screenshots`](docs/screenshots).
 
 ### The First Impression
 

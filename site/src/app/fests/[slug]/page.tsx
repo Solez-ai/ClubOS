@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EventCard } from '@/components/cards/EventCard';
 import { createClient } from '@/lib/supabase/client';
+import { resolveSlugFilter } from '@/lib/slug';
 import { Event } from '@/lib/types';
 
 export default function FestDetailPage() {
@@ -41,7 +42,7 @@ export default function FestDetailPage() {
         .from('fests')
         .select('*, org:organizations(*)')
         // Resolve by slug OR id so both public links and dashboard links work.
-        .or(`slug.eq.${slug},id.eq.${slug}`)
+        .or(resolveSlugFilter(slug))
         .single();
 
       if (!festData) {

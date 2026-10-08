@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { Stamp } from '@/components/ui/Stamp';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { createClient } from '@/lib/supabase/client';
+import { resolveSlugFilter } from '@/lib/slug';
 import { RegStatus } from '@/lib/types';
 import { Calendar, MapPin } from 'lucide-react';
 
@@ -86,7 +87,7 @@ export default function FestPassPage() {
           .from('fests')
           .select('*')
           // Resolve by slug OR id so dashboard links (ids) work too.
-          .or(`slug.eq.${slug},id.eq.${slug}`)
+          .or(resolveSlugFilter(slug))
           .single();
 
         if (!festData) {
