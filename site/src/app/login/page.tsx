@@ -9,9 +9,27 @@ import { Eyebrow } from '@/components/ui/Eyebrow';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, KeyRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ensureProfile, DB_SETUP_HINT } from '@/lib/profile';
+
+// Pre-made, fully functional demo accounts for judges/reviewers.
+// These are real auth users with seeded data (fests, events, registrations).
+// Keep in sync with site/scripts/seed-demo.mjs and the README demo credentials.
+const DEMO_ACCOUNTS = [
+  {
+    label: 'Organizer Demo',
+    email: 'demo.organizer@clubos.app',
+    password: 'AuroraDemo2026!',
+    description: '5 fests, 60 events, live registrations to manage',
+  },
+  {
+    label: 'Participant Demo',
+    email: 'demo.participant@clubos.app',
+    password: 'PassportDemo2026!',
+    description: 'Registered to events across 3 fests',
+  },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -65,8 +83,7 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const signIn = async (signinEmail: string, signinPassword: string) => {
     if (!supabase) {
       setError('Supabase is not configured. Please add your credentials in environment settings.');
       return;
@@ -77,8 +94,8 @@ export default function LoginPage() {
 
     try {
       const { data, error: authErr } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: signinEmail,
+        password: signinPassword,
       });
 
       if (authErr) {
@@ -108,6 +125,17 @@ export default function LoginPage() {
       setError('An unexpected error occurred');
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await signIn(email, password);
+  };
+
+  const handleDemoSignIn = async (demoEmail: string, demoPassword: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    await signIn(demoEmail, demoPassword);
   };
 
   return (
@@ -146,6 +174,34 @@ export default function LoginPage() {
               Sign In
             </Button>
           </form>
+
+          <div className="border-t border-[var(--border)] pt-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-[var(--muted)]">
+              <KeyRound size={14} />
+              <span className="font-mono text-xs uppercase tracking-wider">Demo Mode</span>
+            </div>
+            <p className="text-xs text-[var(--muted)]">
+              One-click entry with pre-made accounts and real seeded data.
+            </p>
+            {DEMO_ACCOUNTS.map((acc) => (
+              <Button
+                key={acc.email}
+                variant="secondary"
+                className="w-full"
+                isLoading={isLoading}
+                onClick={() => void handleDemoSignIn(acc.email, acc.password)}
+              >
+                {acc.label}
+              </Button>
+            ))}
+            <div className="font-mono text-[10px] leading-relaxed text-[var(--muted)]">
+              {DEMO_ACCOUNTS.map((acc) => (
+                <div key={acc.email}>
+                  {acc.email} / {acc.password} — {acc.description}
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="text-center font-mono text-xs text-[var(--muted)] border-t border-[var(--border)] pt-4">
             Don&apos;t have an account yet?{' '}
