@@ -40,7 +40,8 @@ export default function FestDetailPage() {
       const { data: festData } = await supabase
         .from('fests')
         .select('*, org:organizations(*)')
-        .eq('slug', slug)
+        // Resolve by slug OR id so both public links and dashboard links work.
+        .or(`slug.eq.${slug},id.eq.${slug}`)
         .single();
 
       if (!festData) {

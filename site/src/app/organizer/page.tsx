@@ -13,6 +13,7 @@ import { Plus, Users, QrCode, Calendar, Activity, AlertCircle, Compass } from 'l
 
 interface EventRow {
   id: string;
+  slug: string;
   title: string;
   category: string;
   venue: string | null;
@@ -227,8 +228,14 @@ export default function OrganizerDashboardPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/passport/fests/${fest.id}`}>
+                    <Link href={`/manage/fest/${fest.id}`}>
                       <Button size="sm" className="font-mono text-xs gap-1.5">
+                        <Calendar size={13} />
+                        Manage
+                      </Button>
+                    </Link>
+                    <Link href={`/fests/${fest.id}`}>
+                      <Button size="sm" variant="secondary" className="font-mono text-xs gap-1.5">
                         <Compass size={13} />
                         View Page
                       </Button>
@@ -272,10 +279,15 @@ export default function OrganizerDashboardPage() {
                         Participants
                       </Button>
                     </Link>
-                    <Link href={`/events/${ev.id}`}>
+                    <Link href={`/events/${ev.slug || ev.id}`}>
                       <Button size="sm" className="font-mono text-xs gap-1.5">
                         <Calendar size={13} />
                         View
+                      </Button>
+                    </Link>
+                    <Link href={`/manage/event/${ev.id}/edit`}>
+                      <Button size="sm" variant="secondary" className="font-mono text-xs gap-1.5">
+                        Edit
                       </Button>
                     </Link>
                   </div>

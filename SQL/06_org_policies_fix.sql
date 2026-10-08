@@ -75,7 +75,10 @@ CREATE POLICY "Organizers view registration segments for their events" ON regist
     )
   );
 
--- 6. Covers bucket for fest/event cover images + org logos
+-- 6. Fest categories: organizers pick category tags when creating/editing fests.
+ALTER TABLE public.fests ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
+
+-- 7. Covers bucket for fest/event cover images + org logos
 --    (public read; any authenticated user can upload — the pages enforce
 --    organizer-only access in the UI).
 INSERT INTO storage.buckets (id, name, public)

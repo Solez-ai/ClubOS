@@ -85,7 +85,8 @@ export default function FestPassPage() {
         const { data: festData } = await supabase
           .from('fests')
           .select('*')
-          .eq('slug', slug)
+          // Resolve by slug OR id so dashboard links (ids) work too.
+          .or(`slug.eq.${slug},id.eq.${slug}`)
           .single();
 
         if (!festData) {

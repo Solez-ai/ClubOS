@@ -33,6 +33,8 @@ export default function CreateFestPage() {
   const [googleMapsUrl, setGoogleMapsUrl] = useState('');
   const [venueLat, setVenueLat] = useState('');
   const [venueLng, setVenueLng] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<{ id: string; name: string }[]>([]);
 
   // Organization data
   const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
@@ -88,6 +90,10 @@ export default function CreateFestPage() {
           setSelectedOrgId(orgs[0].id);
         }
       }
+
+      // Categories participants can filter by
+      const { data: tagRows } = await supabase.from('category_tags').select('id, name').order('name');
+      if (tagRows) setAllTags(tagRows);
     };
 
     init();
@@ -152,6 +158,7 @@ export default function CreateFestPage() {
           venue_longitude: venueLng ? parseFloat(venueLng) : null,
           is_published: true,
           is_featured: false,
+          tags,
           created_by: user?.id,
         })
         .select()
@@ -282,6 +289,29 @@ export default function CreateFestPage() {
                     rows={4}
                     className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Categories</label>
+                  <p className="text-xs text-[var(--muted)] mb-2">Participants filter the feed by these.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {allTags.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() =>
+                          setTags((prev) => (prev.includes(t.name) ? prev.filter((x) => x !== t.name) : [...prev, t.name]))
+                        }
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          tags.includes(t.name)
+                            ? 'bg-[var(--accent)] text-[var(--accent-fg)] border-[var(--accent)]'
+                            : 'border-[var(--border)] text-[var(--muted)] hover:border-[var(--border-strong)]'
+                        }`}
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

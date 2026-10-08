@@ -64,7 +64,9 @@ export default function EventDetailPage() {
           event_tags(tag_id),
           tags_data:event_tags(tag:category_tags(id, name, color))
         `)
-        .eq('slug', slug)
+        // Resolve by slug OR id so organizer dashboard links (which use ids)
+        // and shared public links (which use slugs) both work.
+        .or(`slug.eq.${slug},id.eq.${slug}`)
         .single();
 
       if (eventError) {

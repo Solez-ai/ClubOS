@@ -116,6 +116,7 @@ CREATE TABLE IF NOT EXISTS fests (
   venue_latitude DECIMAL(10, 8),
   venue_longitude DECIMAL(11, 8),
   google_maps_url TEXT,
+  tags TEXT[] DEFAULT '{}',
   is_published BOOLEAN DEFAULT false,
   is_featured BOOLEAN DEFAULT false,
   created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,

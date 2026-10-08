@@ -103,7 +103,8 @@ export default function EventRegistrationPaymentPage() {
       const { data: eventData } = await supabase
         .from('events')
         .select('*, segments(*)')
-        .eq('slug', slug)
+        // Resolve by slug OR id so dashboard links (ids) work too.
+        .or(`slug.eq.${slug},id.eq.${slug}`)
         .single();
 
       if (!eventData) {
