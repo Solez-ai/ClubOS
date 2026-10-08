@@ -1,5 +1,14 @@
 # ClubOS
 
+<p align="center">
+  <a href="brag-output/brag.mp4" title="Watch the ClubOS launch video (20 seconds)">
+    <img src="brag-output/brag.jpg" alt="ClubOS launch video — click to watch" width="100%">
+  </a>
+</p>
+<p align="center">
+  <sub><b>Watch the 20-second launch video</b> — click the poster above, or <a href="brag-output/brag.mp4">download it here</a>. Poster: <a href="brag-output/brag.jpg">brag.jpg</a>.</sub>
+</p>
+
 ## 1. Project Name
 
 ClubOS — Smart Club Operations Ecosystem. One passport for every fest.

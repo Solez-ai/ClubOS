@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>ClubOS — One passport for every fest</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      /* Fonts: the render sandbox has no network font fetch guarantee, so we
+         ship no @font-face and fall back to Georgia serif / system sans which
+         visually match the brand's Fraunces/Geist pairing. */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0d0c0a;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0d0c0a;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #f3efe6;
+      }
+      .clip {
+        position: absolute;
+        inset: 0;
+      }
+      .serif {
+        font-family: Georgia, "Times New Roman", serif;
+        font-weight: 400;
+      }
+      .mono {
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      }
+      /* OS-bundled font declaration: satisfies the font-face check without a file. */
+      @font-face {
+        font-family: "Cascadia Mono";
+        src: local("Cascadia Mono"), local("Consolas");
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 22px;
+        letter-spacing: 0.42em;
+        text-transform: uppercase;
+        color: #9b968a;
+        font-weight: 500;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #c9a96e;
+      }
+
+      /* ---------- Scene 1: Hook ---------- */
+      #glow {
+        position: absolute;
+        left: 50%;
+        top: 46%;
+        width: 1400px;
+        height: 1400px;
+        margin: -700px 0 0 -700px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(201, 169, 110, 0.16) 0%, rgba(201, 169, 110, 0.05) 42%, rgba(201, 169, 110, 0) 68%);
+        will-change: opacity;
+        opacity: 0.7;
+      }
+      #s1 .hook-wrap {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 44px;
+      }
+      #hook-line {
+        font-size: 118px;
+        line-height: 1.08;
+        letter-spacing: -0.015em;
+        text-align: center;
+        color: #f3efe6;
+        max-width: 1500px;
+      }
+      #hook-sub {
+        font-size: 30px;
+        color: #9b968a;
+        letter-spacing: 0.02em;
+      }
+
+      /* ---------- Scene 2: Ops layer ---------- */
+      #s2 .stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 90px;
+        padding: 0 120px;
+      }
+      .fest-card {
+        width: 760px;
+        background: #1a1815;
+        border: 1px solid rgba(243, 239, 230, 0.12);
+        border-radius: 24px;
+        padding: 44px 48px;
+      }
+      .fest-card .fest-name {
+        font-size: 44px;
+        color: #f3efe6;
+      }
+      .fest-card .fest-meta {
+        margin-top: 10px;
+        font-size: 22px;
+        color: #9b968a;
+      }
+      .meter-row {
+        margin-top: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 20px;
+        color: #9b968a;
+      }
+      .meter {
+        margin-top: 14px;
+        height: 14px;
+        border-radius: 999px;
+        background: #2f2c28;
+        overflow: hidden;
+      }
+      .meter-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #8a6a2f, #c9a96e);
+      }
+      .ops-lines {
+        display: flex;
+        flex-direction: column;
+        gap: 36px;
+        max-width: 640px;
+      }
+      .ops-line {
+        font-size: 62px;
+        line-height: 1.15;
+        color: #f3efe6;
+        letter-spacing: -0.01em;
+      }
+      .ops-line .accent {
+        color: #c9a96e;
+      }
+
+      /* ---------- Scene 3: Payment ---------- */
+      #s3 .stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 48px;
+      }
+      .pay-card {
+        width: 860px;
+        background: #1a1815;
+        border: 1px solid rgba(243, 239, 230, 0.12);
+        border-radius: 24px;
+        padding: 48px 56px;
+        display: flex;
+        flex-direction: column;
+        gap: 26px;
+      }
+      .pay-event {
+        font-size: 40px;
+        color: #f3efe6;
+      }
+      .pay-team {
+        font-size: 22px;
+        color: #9b968a;
+      }
+      .pay-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 22px 26px;
+        border-radius: 14px;
+        background: #252220;
+        border: 1px solid rgba(243, 239, 230, 0.08);
+      }
+      .pay-method {
+        font-size: 28px;
+        color: #f3efe6;
+        font-weight: 600;
+      }
+      .pay-amount {
+        font-size: 28px;
+        color: #c9a96e;
+        font-weight: 700;
+      }
+      .pay-trx {
+        font-size: 22px;
+        color: #9b968a;
+      }
+      .verify-btn {
+        align-self: flex-start;
+        padding: 16px 34px;
+        border-radius: 12px;
+        background: #c9a96e;
+        color: #14110b;
+        font-size: 24px;
+        font-weight: 700;
+      }
+      .verified-row {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        font-size: 40px;
+        font-weight: 700;
+        color: #7dd48a;
+        opacity: 0;
+      }
+      .pay-flip {
+        position: relative;
+      }
+      .check-badge {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(125, 212, 138, 0.15);
+        border: 2px solid #7dd48a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* ---------- Scene 4: Passport ---------- */
+      #s4 .stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 100px;
+      }
+      .passport {
+        position: relative;
+        width: 520px;
+        height: 340px;
+        background: linear-gradient(150deg, #1a1815 0%, #151411 100%);
+        border: 2px solid rgba(201, 169, 110, 0.65);
+        border-radius: 28px;
+        padding: 44px 48px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .passport .pp-label {
+        font-size: 20px;
+        letter-spacing: 0.34em;
+        text-transform: uppercase;
+        color: #9b968a;
+      }
+      .passport .pp-name {
+        font-size: 54px;
+        color: #f3efe6;
+      }
+      .passport .pp-ticket {
+        font-size: 24px;
+        color: #c9a96e;
+        letter-spacing: 0.14em;
+      }
+      .stamp {
+        position: absolute;
+        width: 150px;
+        height: 150px;
+        border: 6px solid rgba(201, 169, 110, 0.85);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: rgba(201, 169, 110, 0.95);
+        text-transform: uppercase;
+        transform: rotate(var(--rot, -8deg));
+        opacity: 0;
+      }
+      #stamp-1 { top: 26px; right: 30px; --rot: -10deg; }
+      #stamp-2 { top: 110px; right: 150px; --rot: 8deg; }
+      #stamp-3 { top: 24px; left: 150px; --rot: -6deg; }
+      .xp-block {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      #xp-counter {
+        font-size: 150px;
+        color: #f3efe6;
+        letter-spacing: -0.02em;
+      }
+      #xp-counter .xp-plus {
+        color: #c9a96e;
+      }
+      .xp-label {
+        font-size: 24px;
+        color: #9b968a;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      /* ---------- Scene 5: Outro ---------- */
+      #s5 .stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 34px;
+      }
+      #outro-name {
+        font-size: 168px;
+        letter-spacing: -0.02em;
+        color: #f3efe6;
+        position: relative;
+        padding-bottom: 18px;
+      }
+      #outro-underline {
+        position: absolute;
+        left: 8%;
+        right: 8%;
+        bottom: 0;
+        height: 6px;
+        border-radius: 999px;
+        background: #c9a96e;
+        transform-origin: left center;
+      }
+      #outro-role {
+        font-size: 30px;
+        color: #9b968a;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+      #outro-tag {
+        font-size: 36px;
+        color: #c9a96e;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="20"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- shared background glow (audio-reactive target) -->
+      <div id="glow" data-start="0" data-duration="20"></div>
+
+      <!-- Scene 1: Hook (0-4s) -->
+      <section id="s1" class="clip" data-start="0" data-duration="4.4" data-track-index="1">
+        <div class="hook-wrap">
+          <div id="s1-eyebrow" class="eyebrow">ClubOS</div>
+          <h1 id="hook-line" class="serif">One passport for<br />every fest.</h1>
+          <p id="hook-sub">Smart Club Operations Ecosystem</p>
+        </div>
+      </section>
+
+      <!-- Scene 2: Ops layer (4.4-9.4s) -->
+      <section id="s2" class="clip" data-start="4.4" data-duration="5.0" data-track-index="1">
+        <div class="stage">
+          <div id="fest-card" class="fest-card">
+            <div class="fest-name serif">Aurora Tech Carnival</div>
+            <div class="fest-meta">Hackathons &middot; Robotics &middot; Workshops</div>
+            <div class="meter-row"><span>Capacity</span><span id="meter-pct">0%</span></div>
+            <div class="meter"><div id="meter-fill" class="meter-fill"></div></div>
+          </div>
+          <div class="ops-lines">
+            <div id="ops-1" class="ops-line serif"><span class="accent">5 fests.</span> 60 events.</div>
+            <div id="ops-2" class="ops-line serif">One dashboard.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 3: Paid, verified (9.4-14.2s) -->
+      <section id="s3" class="clip" data-start="9.4" data-duration="4.8" data-track-index="1">
+        <div class="stage">
+          <div class="pay-card">
+            <div>
+              <div class="pay-event serif">AI Model Showdown</div>
+              <div class="pay-team">Team Entry &middot; Aurora Tech Carnival</div>
+            </div>
+            <div class="pay-row" id="pay-row">
+              <div>
+                <div class="pay-method">bKash</div>
+                <div class="pay-trx mono">TRX8H2K9Q1P4</div>
+              </div>
+              <div class="pay-amount">BDT 200</div>
+            </div>
+            <div class="pay-flip">
+              <div id="verify-btn" class="verify-btn">Verify payment</div>
+              <div id="verified-row" class="verified-row">
+                <div class="check-badge">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7dd48a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                Payment verified
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 4: Passport (14.2-18.2s) -->
+      <section id="s4" class="clip" data-start="14.2" data-duration="4.0" data-track-index="1">
+        <div class="stage">
+          <div id="passport" class="passport">
+            <div class="pp-label">Participant Passport</div>
+            <div class="pp-name serif" data-layout-allow-overlap>Nusrat Jahan</div>
+            <div class="pp-ticket mono">CL-2026-047281</div>
+            <div id="stamp-1" class="stamp">Aurora<br />Carnival</div>
+            <div id="stamp-2" class="stamp" data-layout-allow-overlap>Robo<br />Rumble</div>
+            <div id="stamp-3" class="stamp">Cultural<br />Utsob</div>
+          </div>
+          <div class="xp-block">
+            <div id="xp-counter" class="serif"><span class="xp-plus">+</span><span id="xp-num">0</span></div>
+            <div class="xp-label">XP collected</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 5: Outro (18.2-20s) -->
+      <section id="s5" class="clip" data-start="18.2" data-duration="1.8" data-track-index="1">
+        <div class="stage">
+          <div id="outro-name" class="serif">ClubOS<span id="outro-underline"></span></div>
+          <div id="outro-role">Smart Club Operations Ecosystem</div>
+          <div id="outro-tag" class="serif">One passport for every fest.</div>
+        </div>
+      </section>
+
+      <!-- Audio: music bed (track 10), fades handled with data-fade-out -->
+      <audio
+        id="bg-music"
+        data-start="0"
+        data-duration="20"
+        data-track-index="10"
+        data-volume="0.3"
+        data-fade-out="2"
+        src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"
+      ></audio>
+      <!-- SFX (tracks 11+) — sound and motion land together -->
+      <audio id="sfx-meter" data-start="5.0" data-duration="1.4" data-track-index="11" data-volume="0.62" src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="sfx-line1" data-start="6.2" data-duration="0.8" data-track-index="12" data-volume="0.5" src="assets/sfx/ui/click2.ogg"></audio>
+      <audio id="sfx-line2" data-start="6.8" data-duration="0.8" data-track-index="13" data-volume="0.5" src="assets/sfx/ui/click3.ogg"></audio>
+      <audio id="sfx-click" data-start="12.55" data-duration="0.6" data-track-index="14" data-volume="0.7" src="assets/sfx/ui/mouseclick1.ogg"></audio>
+      <audio id="sfx-verified" data-start="13.05" data-duration="1.2" data-track-index="15" data-volume="0.72" src="assets/sfx/impact/impactBell_heavy_000.ogg"></audio>
+      <audio id="sfx-stamp1" data-start="15.0" data-duration="0.7" data-track-index="16" data-volume="0.66" src="assets/sfx/casino/card-place-1.ogg"></audio>
+      <audio id="sfx-stamp2" data-start="15.55" data-duration="0.7" data-track-index="17" data-volume="0.66" src="assets/sfx/casino/card-place-2.ogg"></audio>
+      <audio id="sfx-stamp3" data-start="16.1" data-duration="0.7" data-track-index="18" data-volume="0.66" src="assets/sfx/casino/card-place-3.ogg"></audio>
+      <audio id="sfx-logo" data-start="18.35" data-duration="1.6" data-track-index="19" data-volume="0.55" src="assets/sfx/impact/impactBell_heavy_003.ogg"></audio>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+
+      /* ============ Scene 1: Hook (0-4.4) ============ */
+      tl.fromTo("#s1-eyebrow", { opacity: 0, y: -16 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 0.25);
+      tl.fromTo("#hook-line", { opacity: 0, y: 44 }, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" }, 0.55);
+      tl.fromTo("#hook-sub", { opacity: 0 }, { opacity: 1, duration: 0.7, ease: "power1.out" }, 1.5);
+      // gentle continuous drift so the hold feels alive, not static
+      tl.fromTo("#hook-line", { scale: 1.015 }, { scale: 1, duration: 2.6, ease: "power1.out" }, 1.45);
+      // scene 1 exit: soft fade of content
+      tl.to("#s1 .hook-wrap", { opacity: 0, y: -26, duration: 0.5, ease: "power2.in" }, 3.85);
+
+      /* ============ Scene 2: Ops layer (4.4-9.4) ============ */
+      tl.fromTo("#fest-card", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 4.6);
+      // meter fills 0 -> 85% with a live percentage counter
+      tl.to({ v: 0 }, { v: 85, duration: 1.3, ease: "power2.inOut",
+        onUpdate: function () {
+          const v = Math.round(this.targets()[0].v);
+          document.getElementById("meter-fill").style.width = v + "%";
+          document.getElementById("meter-pct").textContent = v + "%";
+        } }, 5.0);
+      // ops lines arrive on alternating beats (~0.55s grid), each holding long enough to read
+      tl.fromTo("#ops-1", { opacity: 0, x: 48 }, { opacity: 1, x: 0, duration: 0.55, ease: "power2.out" }, 6.05); // beat-grid: line 1 at 6.05s
+      tl.fromTo("#ops-2", { opacity: 0, x: 48 }, { opacity: 1, x: 0, duration: 0.55, ease: "power2.out" }, 6.65); // beat-grid: line 2 at 6.65s
+      tl.to("#s2 .stage", { opacity: 0, y: -24, duration: 0.45, ease: "power2.in" }, 8.95);
+
+      /* ============ Scene 3: Paid, verified (9.4-14.2) ============ */
+      tl.fromTo(".pay-card", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 9.6);
+      tl.fromTo("#verify-btn", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 10.3);
+      // simulated press on the button
+      tl.to("#verify-btn", { scale: 0.94, duration: 0.09, ease: "power1.in" }, 12.55);
+      tl.to("#verify-btn", { scale: 1, duration: 0.12, ease: "power1.out" }, 12.66);
+      tl.to("#verify-btn", { opacity: 0, duration: 0.18 }, 12.85);
+      // flip to verified — beat-locked to the 13.11s strong cue (cue at 13.11, flip lands 13.05+0.06)
+      tl.fromTo("#verified-row", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.6)" }, 13.05); // beat-locked: 13.11s
+      tl.to("#pay-row", { borderColor: "rgba(125,212,138,0.45)", duration: 0.4 }, 13.05);
+      tl.to("#s3 .stage", { opacity: 0, y: -24, duration: 0.45, ease: "power2.in" }, 13.7);
+
+      /* ============ Scene 4: Passport (14.2-18.2) ============ */
+      tl.fromTo("#passport", { opacity: 0, y: 70, rotation: -1.5 }, { opacity: 1, y: 0, rotation: 0, duration: 0.7, ease: "power3.out" }, 14.35);
+      // stamps land on consecutive beats of the ~0.55s grid
+      tl.to("#stamp-1", { opacity: 1, scale: 1.18, duration: 0.16, ease: "power2.in" }, 15.0); // beat-grid: stamp 1
+      tl.to("#stamp-1", { scale: 1, duration: 0.2, ease: "power2.out" }, 15.16);
+      tl.to("#stamp-2", { opacity: 1, scale: 1.18, duration: 0.16, ease: "power2.in" }, 15.55); // beat-grid: stamp 2
+      tl.to("#stamp-2", { scale: 1, duration: 0.2, ease: "power2.out" }, 15.71);
+      tl.to("#stamp-3", { opacity: 1, scale: 1.18, duration: 0.16, ease: "power2.in" }, 16.1); // beat-grid: stamp 3
+      tl.to("#stamp-3", { scale: 1, duration: 0.2, ease: "power2.out" }, 16.26);
+      // XP counter ticks up with each stamp: 0 -> 50 -> 100 -> 150
+      tl.to({ v: 0 }, { v: 150, duration: 1.5, ease: "steps(3)",
+        onUpdate: function () {
+          document.getElementById("xp-num").textContent = String(Math.round(this.targets()[0].v));
+        } }, 15.0);
+      tl.to("#s4 .stage", { opacity: 0, y: -24, duration: 0.4, ease: "power2.in" }, 17.8);
+
+      /* ============ Scene 5: Outro (18.2-20) ============ */
+      tl.fromTo("#outro-name", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 18.3); // beat-locked: ~18.56s strong cue (entrance starts just before the hit)
+      tl.fromTo("#outro-underline", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power3.inOut", immediateRender: true }, 18.6);      tl.fromTo("#outro-role", { opacity: 0 }, { opacity: 1, duration: 0.45 }, 18.75);
+      tl.fromTo("#outro-tag", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45 }, 18.95);
+
+      /* ============ Audio-reactive glow (subtle, bass-driven) ============ */
+      // Pre-extracted per-frame bass from the music (glow-bass.json, 30fps, first 20s).
+      // Bass gently modulates the brass glow's opacity — no waveform visuals.
+      fetch("glow-bass.json")
+        .then(function (r) { return r.json(); })
+        .then(function (bass) {
+          for (let f = 0; f < bass.length; f++) {
+            tl.call(
+              (function (frame, t) {
+                return function () {
+                  // map bass 0-1 to glow opacity 0.55-1.0 (subtle swell)
+                  gsap.set("#glow", { opacity: 0.55 + t * 0.45 });
+                };
+              })(f, bass[f]),
+              [],
+              f / 30
+            );
+          }
+        })
+        .catch(function () { /* glow stays at CSS default if data missing */ });
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
