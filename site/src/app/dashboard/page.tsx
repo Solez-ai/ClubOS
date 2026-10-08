@@ -32,12 +32,14 @@ export default function DashboardPage() {
         router.push('/login');
         return;
       }
-      // Get organizations where user is an organizer (org_members.role = 'organizer')
+      // Get organizations where the user has any membership role. The table is
+      // `organization_members` (the `org_members` name has no FK to
+      // `organizations`, which made PostgREST reject the embed).
       const { data, error } = await supabase
-        .from('org_members')
+        .from('organization_members')
         .select('organizations(id, name, slug)')
         .eq('user_id', user.id)
-        .eq('role', 'organizer');
+        .in('role', ['owner', 'admin', 'organizer']);
       if (error) {
         setError(error.message);
         return;
