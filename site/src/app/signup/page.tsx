@@ -148,33 +148,55 @@ export default function SignUpPage() {
 
       const avatarUrl = await uploadAvatar(supabase, data.user.id);
 
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({
+      // Build a unique handle for the insert path (email prefix, suffix on collision).
+      const baseHandle =
+        email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 24) || 'user';
+      let handle = baseHandle;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('handle', handle)
+          .maybeSingle();
+        if (!existing) break;
+        handle = `${baseHandle}${Math.floor(Math.random() * 9000 + 1000)}`;
+      }
+
+      // Upsert, not update: the handle_new_user() trigger normally created the
+      // row during signUp(), but if the trigger is missing on the DB the UPDATE
+      // would silently match 0 rows and the user would land on the participant
+      // dashboard. Upsert heals a missing row AND stamps the chosen role so
+      // /organizer's role check always passes for organizers.
+      const { error: upsertErr } = await supabase.from('profiles').upsert(
+        {
+          id: data.user.id,
+          handle,
           full_name: fullName.trim(),
+          email,
+          role,
           phone: phone.trim() || null,
           institution: institution.trim() || null,
           ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
           onboarded: true,
-        })
-        .eq('id', data.user.id);
+        },
+        { onConflict: 'id' }
+      );
 
-      if (updateErr) {
-        setError(updateErr.message);
+      if (upsertErr) {
+        setError(upsertErr.message);
         setLoading(false);
         return;
       }
 
-      // Refresh the session so the new identity is fully established.
-      await supabase.auth.signOut();
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInErr) {
-        setError(friendlyAuthError(signInErr.message));
-        setLoading(false);
-        return;
-      }
+      // Route by the role actually stored in the DB (source of truth), so the
+      // dashboard redirect can never disagree with what we saved.
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
 
-      router.push(role === 'organizer' ? '/organizer' : '/events');
+      router.push(prof?.role === 'organizer' ? '/organizer' : '/events');
     } catch {
       setError('An unexpected error occurred. Please try again.');
       setLoading(false);
