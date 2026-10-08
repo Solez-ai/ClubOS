@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { ensureProfile, DB_SETUP_HINT } from '@/lib/profile';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -91,6 +92,15 @@ export default function LoginPage() {
       }
 
       if (data?.user) {
+        // Self-heal: earlier broken signups may have left no profile row,
+        // which made /organizer bounce to /events and /passport demand a
+        // fresh sign-in. Recreate it from the auth metadata before routing.
+        const healed = await ensureProfile(supabase, data.user);
+        if (!healed.ok) {
+          setError(healed.setupIncomplete ? DB_SETUP_HINT : healed.error ?? 'Sign-in failed');
+          setIsLoading(false);
+          return;
+        }
         await redirectToRoleHome(data.user.id);
       }
       setIsLoading(false);

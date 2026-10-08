@@ -15,6 +15,7 @@ import { Medallion } from '@/components/ui/Medallion';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { calculateLevel } from '@/lib/xp';
 import { createClient } from '@/lib/supabase/client';
+import { ensureProfile, DB_SETUP_HINT } from '@/lib/profile';
 import { RegStatus } from '@/lib/types';
 import { Share2 } from 'lucide-react';
 
@@ -40,6 +41,7 @@ export default function PassportPage() {
   const [connections, setConnections] = useState<{ id: string; full_name: string; handle: string }[]>([]);
   const [activeTab, setActiveTab] = useState('fests');
   const [loading, setLoading] = useState(true);
+  const [setupError, setSetupError] = useState('');
 
   const supabase = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -58,6 +60,15 @@ export default function PassportPage() {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) {
         router.push('/login');
+        return;
+      }
+
+      // Self-heal: a missing profile row (earlier broken signups) used to show
+      // "Sign In to View Passport" even for signed-in users. Recreate it.
+      const healed = await ensureProfile(supabase, authData.user);
+      if (!healed.ok) {
+        setSetupError(healed.setupIncomplete ? DB_SETUP_HINT : healed.error ?? 'Profile error');
+        setLoading(false);
         return;
       }
 
@@ -145,7 +156,14 @@ export default function PassportPage() {
       <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)]">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <Link href="/login"><Button>Sign In to View Passport</Button></Link>
+          {setupError ? (
+            <div className="text-center max-w-md px-4">
+              <p className="text-[var(--text)] mb-2 font-medium">Account setup incomplete</p>
+              <p className="text-[var(--muted)] text-sm">{setupError}</p>
+            </div>
+          ) : (
+            <Link href="/login"><Button>Sign In to View Passport</Button></Link>
+          )}
         </main>
         <Footer />
       </div>

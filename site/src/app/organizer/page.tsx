@@ -8,6 +8,7 @@ import { Eyebrow } from '@/components/ui/Eyebrow';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
+import { ensureProfile, DB_SETUP_HINT } from '@/lib/profile';
 import { Plus, Users, QrCode, Calendar, Activity, AlertCircle, Compass } from 'lucide-react';
 
 interface EventRow {
@@ -33,6 +34,7 @@ export default function OrganizerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [isOrganizer, setIsOrganizer] = useState(false);
+  const [setupError, setSetupError] = useState('');
   const [stats, setStats] = useState({ total: 0, confirmed: 0, pending: 0 });
 
   const supabase = useMemo(() => {
@@ -57,6 +59,15 @@ export default function OrganizerDashboardPage() {
         return;
       }
       setUser(authData.user);
+
+      // Self-heal: a missing profile row (from earlier broken signups) used to
+      // bounce real organizers to /events. Recreate it from auth metadata first.
+      const healed = await ensureProfile(supabase, authData.user);
+      if (!healed.ok) {
+        setSetupError(healed.setupIncomplete ? DB_SETUP_HINT : healed.error ?? 'Profile error');
+        setLoading(false);
+        return;
+      }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -125,9 +136,16 @@ export default function OrganizerDashboardPage() {
   if (!supabase || !isOrganizer) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--text)]">
-        <div className="text-center">
+        <div className="text-center max-w-md px-4">
           <AlertCircle size={40} className="mx-auto mb-4 text-[var(--muted)]" />
-          <p className="text-[var(--muted)] mb-4">Organizer access required.</p>
+          {setupError ? (
+            <>
+              <p className="text-[var(--text)] mb-2 font-medium">Account setup incomplete</p>
+              <p className="text-[var(--muted)] mb-4 text-sm">{setupError}</p>
+            </>
+          ) : (
+            <p className="text-[var(--muted)] mb-4">Organizer access required.</p>
+          )}
           <Link href="/login"><Button>Sign In</Button></Link>
         </div>
       </div>
