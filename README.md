@@ -117,18 +117,146 @@ All AI assistance was in the development toolchain only. No AI APIs or model cal
 
 ## 10. Screenshots
 
-Key screens (viewable live at https://site-weld-mu-16.vercel.app):
+A visual walkthrough of the live platform, captured from https://site-weld-mu-16.vercel.app using the demo accounts from Section 7. The tour alternates between dark and light mode as it moves through the product, so judges can see both themes. Full-resolution captures live in [`docs/screenshots`](docs/screenshots).
 
-1. Login page with the Demo Mode one-click entry buttons.
-2. Signup page with role cards, avatar upload with crop preview, and a single Create Account action.
-3. Fests directory with ongoing/upcoming/past grouping, capacity meters, and category tag filters.
-4. Fest detail page and event detail page with segment pricing and bKash/Nagad payment instructions.
-5. Registration flow with segment selection and transaction ID submission.
-6. Participant Passport: collectible card, ink stamps, XP, and rarity medallions.
-7. Organizer dashboard: KPI stats, registration trend chart, and activity feed.
-8. Organizer payment verification table showing the pending paid registration from the demo participant.
-9. Event management: fest and event edit pages with image crop-upload, tags, and segment configuration.
-10. Live check-in: rotating projector QR code and the camera ticket scanner.
+### The First Impression
+
+Landing page, and the login screen with the one-click Demo Mode buttons judges can use to enter the platform instantly:
+
+<p align="center">
+  <img src="docs/screenshots/01-landing-dark.jpg" alt="ClubOS landing page, dark mode" width="100%">
+</p>
+<p align="center">
+  <sub><b>Landing page (dark mode)</b> — the participant passport promise, front and center.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/02-login-demo-mode-dark.jpg" alt="Login page with Demo Mode one-click buttons, dark mode">
+      <br><sub><b>Login with Demo Mode (dark)</b> — one click enters the judge straight in.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/03-signup-light.jpg" alt="Signup page with role cards, light mode">
+      <br><sub><b>Signup (light)</b> — role cards, avatar crop-upload, one Create Account action.</sub>
+    </td>
+  </tr>
+</table>
+
+### The Participant Journey
+
+Signing in as the demo participant and walking the full flow: discovering fests, opening events, registering with bKash payment, and earning the passport:
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/04-fests-directory-light.jpg" alt="Fests directory, light mode">
+      <br><sub><b>Fests directory (light)</b> — five live fests with capacity meters and tags.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/05-fest-detail-dark.jpg" alt="Fest detail page, dark mode">
+      <br><sub><b>Fest detail (dark)</b> — Aurora Tech Carnival, 20 events of many varieties.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/06-events-directory-light.jpg" alt="Events directory, light mode">
+      <br><sub><b>Events directory (light)</b> — filter by category, price, and team format.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/07-event-detail-dark.jpg" alt="Event detail with segment pricing, dark mode">
+      <br><sub><b>Event detail (dark)</b> — segments, rules, prizes, and deadline countdown.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/08-registration-payment-light.jpg" alt="Registration flow with bKash payment submission, light mode">
+      <br><sub><b>Registration (light)</b> — segment selection and bKash/Nagad transaction submission.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/09-participant-dashboard-dark.jpg" alt="Participant dashboard, dark mode">
+      <br><sub><b>Participant dashboard (dark)</b> — tickets, statuses, and payment states.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/10-passport-light.jpg" alt="Participant passport card, light mode">
+      <br><sub><b>Passport (light)</b> — the collectible ID card with XP, stamps, and badges.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/11-notifications-dark.jpg" alt="Notifications page, dark mode">
+      <br><sub><b>Notifications (dark)</b> — confirmations, payment updates, promotions.</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/12-leaderboard-light.jpg" alt="XP leaderboard, light mode" width="72%">
+</p>
+<p align="center">
+  <sub><b>XP Leaderboard (light)</b> — cross-fest competition between participants.</sub>
+</p>
+
+### The Organizer Control Room
+
+Signing in as the demo organizer: dashboards, fest and event management with payment configuration, the payment verification table, and the live check-in toolkit:
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/13-organizer-dashboard-dark.jpg" alt="Organizer KPI dashboard, dark mode">
+      <br><sub><b>Organizer dashboard (dark)</b> — KPIs, registration trends, activity feed.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/14-manage-overview-light.jpg" alt="Manage overview, light mode">
+      <br><sub><b>Manage overview (light)</b> — all five fests and their events, one place.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/15-fest-management-dark.jpg" alt="Fest management area, dark mode">
+      <br><sub><b>Fest management (dark)</b> — event list with per-event registration stats.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/16-fest-edit-light.jpg" alt="Fest edit page with crop upload, light mode">
+      <br><sub><b>Fest edit (light)</b> — cover crop-upload, tags, publish toggle.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/17-event-edit-segments-dark.jpg" alt="Event edit with segment builder, dark mode">
+      <br><sub><b>Event edit (dark)</b> — segment builder with bKash/Nagad payment config.</sub>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/18-participants-payments-light.jpg" alt="Participants table with payment verification, light mode">
+      <br><sub><b>Participants and payments (light)</b> — verify or decline wallet transactions.</sub>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="docs/screenshots/19-venue-qr-projector-dark.jpg" alt="Rotating venue QR projector mode, dark mode">
+      <br><sub><b>Venue QR (dark)</b> — rotating HMAC projector code.</sub>
+    </td>
+    <td width="33%">
+      <img src="docs/screenshots/20-check-in-light.jpg" alt="Check-in desk, light mode">
+      <br><sub><b>Check-in desk (light)</b> — live attendee counters.</sub>
+    </td>
+    <td width="33%">
+      <img src="docs/screenshots/21-ticket-scanner-dark.jpg" alt="Camera ticket scanner, dark mode">
+      <br><sub><b>Ticket scanner (dark)</b> — camera QR scanning at the gate.</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/22-account-light.jpg" alt="Account settings page, light mode" width="72%">
+</p>
+<p align="center">
+  <sub><b>Account settings (light)</b> — profile, avatar, and institution details.</sub>
+</p>
 
 ## 11. Known Limitations
 
