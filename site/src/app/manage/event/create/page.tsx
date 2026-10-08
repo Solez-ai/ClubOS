@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import { ImageCropUpload } from '@/components/ui/ImageCropUpload';
 import {
   Loader2, Calendar, Clock, MapPin, Tag, Plus, Trash2, ArrowRight,
   AlertCircle, Shield, Users, DollarSign, Check, Image, Layers, Globe
@@ -81,8 +82,8 @@ export default function CreateEventPage() {
   const [description, setDescription] = useState('');
   const [rules, setRules] = useState('');
   const [prizes, setPrizes] = useState('');
-  const [coverUrl, setCoverUrl] = useState('');
-  const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [venue, setVenue] = useState('');
@@ -207,6 +208,14 @@ export default function CreateEventPage() {
     e.preventDefault();
     if (!supabase || !festIdSelected) {
       setError('Please select a fest');
+      return;
+    }
+    if (!title.trim()) {
+      setError('Please go back and enter an event title.');
+      return;
+    }
+    if (!startsAt || !registrationOpensAt || !registrationDeadline) {
+      setError('Please fill in the event start, registration open, and deadline dates.');
       return;
     }
 
@@ -448,6 +457,30 @@ export default function CreateEventPage() {
                       className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
                     />
                   </div>
+
+                  <ImageCropUpload
+                    label="Event Cover (Optional)"
+                    helperText="Crop to 16:9 — drag to pan, slider to zoom"
+                    aspect={16 / 9}
+                    outputWidth={1200}
+                    bucket="covers"
+                    pathPrefix="event-cover"
+                    value={coverUrl}
+                    onChange={setCoverUrl}
+                    supabase={supabase}
+                  />
+
+                  <ImageCropUpload
+                    label="Thumbnail (Optional)"
+                    helperText="Square crop works best"
+                    aspect={1}
+                    outputWidth={512}
+                    bucket="covers"
+                    pathPrefix="event-thumb"
+                    value={thumbnailUrl}
+                    onChange={setThumbnailUrl}
+                    supabase={supabase}
+                  />
 
                   <div className="flex items-center gap-3 p-4 bg-[var(--surface)] rounded-lg">
                     <input
@@ -814,7 +847,7 @@ export default function CreateEventPage() {
                 <Button
                   type="button"
                   onClick={() => setStep(step + 1)}
-                  disabled={step === 1 && !title}
+                  disabled={loading}
                   className="flex-1 gap-2"
                 >
                   Next
@@ -824,7 +857,7 @@ export default function CreateEventPage() {
                 <Button
                   type="submit"
                   isLoading={loading}
-                  disabled={!title || !startsAt || !registrationOpensAt || !registrationDeadline}
+                  disabled={loading}
                   className="flex-1 gap-2"
                 >
                   {loading ? (

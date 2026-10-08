@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import { ImageCropUpload } from '@/components/ui/ImageCropUpload';
 import { Loader2, Compass, Calendar, MapPin, Image, Globe, ArrowRight, AlertCircle } from 'lucide-react';
 
 export default function CreateFestPage() {
@@ -24,8 +25,8 @@ export default function CreateFestPage() {
   const [title, setTitle] = useState('');
   const [tagline, setTagline] = useState('');
   const [description, setDescription] = useState('');
-  const [coverUrl, setCoverUrl] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [venue, setVenue] = useState('');
@@ -106,6 +107,14 @@ export default function CreateFestPage() {
     e.preventDefault();
     if (!supabase || !selectedOrgId) {
       setError('Please select an organization');
+      return;
+    }
+    if (!title.trim()) {
+      setError('Please go back and enter a fest title.');
+      return;
+    }
+    if (!startDate || !endDate) {
+      setError('Please pick both a start and end date.');
       return;
     }
 
@@ -277,50 +286,37 @@ export default function CreateFestPage() {
               </div>
             )}
 
-            {/* Step 2: Images */}
+            {/* Step 2: Images — upload and crop on-site, no external URLs */}
             {step === 2 && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <h2 className="font-medium text-lg flex items-center gap-2">
                   <Image size={20} className="text-[var(--accent)]" />
                   Images & Branding
                 </h2>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">Cover Image URL</label>
-                  <input
-                    type="url"
-                    value={coverUrl}
-                    onChange={(e) => setCoverUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
-                    className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                  />
-                  {coverUrl && (
-                    <div className="mt-2 rounded-lg overflow-hidden h-40 bg-[var(--surface-2)]">
-                      <img
-                        src={coverUrl}
-                        alt="Cover preview"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                  <p className="text-xs text-[var(--muted)] mt-1">
-                    Recommended: 1200x600px or larger
-                  </p>
-                </div>
+                <ImageCropUpload
+                  label="Cover Image"
+                  helperText="Crop to a 2:1 banner — drag to pan, slider to zoom"
+                  aspect={2}
+                  outputWidth={1200}
+                  bucket="covers"
+                  pathPrefix="fest-cover"
+                  value={coverUrl}
+                  onChange={setCoverUrl}
+                  supabase={supabase}
+                />
 
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">Logo URL (Optional)</label>
-                  <input
-                    type="url"
-                    value={logoUrl}
-                    onChange={(e) => setLogoUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
-                    className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                  />
-                  <p className="text-xs text-[var(--muted)] mt-1">
-                    Your organization or fest logo
-                  </p>
-                </div>
+                <ImageCropUpload
+                  label="Logo (Optional)"
+                  helperText="Square crop works best"
+                  aspect={1}
+                  outputWidth={512}
+                  bucket="covers"
+                  pathPrefix="fest-logo"
+                  value={logoUrl}
+                  onChange={setLogoUrl}
+                  supabase={supabase}
+                />
               </div>
             )}
 
@@ -427,7 +423,7 @@ export default function CreateFestPage() {
                 <Button
                   type="button"
                   onClick={() => setStep(step + 1)}
-                  disabled={step === 1 && !title}
+                  disabled={loading}
                   className="flex-1 gap-2"
                 >
                   Next
@@ -437,7 +433,7 @@ export default function CreateFestPage() {
                 <Button
                   type="submit"
                   isLoading={loading}
-                  disabled={!title || !startDate || !endDate}
+                  disabled={loading}
                   className="flex-1 gap-2"
                 >
                   {loading ? (

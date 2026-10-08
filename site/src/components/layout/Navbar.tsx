@@ -88,10 +88,12 @@ export const Navbar: React.FC = () => {
 
   const isOrganizer = profile?.role === 'organizer';
 
+  // /passport and /manage are participant features — organizers get the
+  // Organizer Portal instead of participant links.
   const navLinks = [
     { href: '/fests', label: 'Fests' },
     { href: '/events', label: 'Events' },
-    { href: '/passport', label: 'Passport' },
+    ...(!isOrganizer ? [{ href: '/passport', label: 'Passport' }] : []),
     ...(isOrganizer ? [{ href: '/organizer', label: 'Organizer' }] : []),
   ];
 
@@ -135,12 +137,16 @@ export const Navbar: React.FC = () => {
         {/* Dropdown */}
         <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all">
           <div className="w-52 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg overflow-hidden">
-            <Link href="/passport" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
-              <User size={15} className="text-[var(--muted)]" /> My Passport
-            </Link>
-            <Link href="/manage" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
-              <LayoutDashboard size={15} className="text-[var(--muted)]" /> Manage
-            </Link>
+            {!isOrganizer && (
+              <Link href="/passport" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
+                <User size={15} className="text-[var(--muted)]" /> My Passport
+              </Link>
+            )}
+            {!isOrganizer && (
+              <Link href="/manage" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
+                <LayoutDashboard size={15} className="text-[var(--muted)]" /> Manage
+              </Link>
+            )}
             {isOrganizer && (
               <Link href="/organizer" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors">
                 <Compass size={15} className="text-[var(--muted)]" /> Organizer Portal
@@ -254,8 +260,8 @@ export const Navbar: React.FC = () => {
             {/* Auth area (desktop) */}
             {renderAuthArea()}
 
-            {/* Passport quick link on tablet/mobile desktop row */}
-            {authState === 'signed_in' && (
+            {/* Passport quick link on tablet/mobile desktop row (participants only) */}
+            {authState === 'signed_in' && !isOrganizer && (
               <Link
                 href="/passport"
                 className="lg:hidden flex items-center gap-2 h-9 px-3.5 bg-[var(--accent)] text-[var(--accent-fg)] hover:opacity-90 rounded-lg text-xs font-medium transition-opacity shrink-0"
@@ -330,12 +336,14 @@ export const Navbar: React.FC = () => {
                   })}
                   {authState === 'signed_in' && (
                     <>
-                      <Link
-                        href="/manage"
-                        className="block w-full py-3 px-4 rounded-lg text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
-                      >
-                        Manage
-                      </Link>
+                      {!isOrganizer && (
+                        <Link
+                          href="/manage"
+                          className="block w-full py-3 px-4 rounded-lg text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                        >
+                          Manage
+                        </Link>
+                      )}
                       <Link
                         href="/account"
                         className="block w-full py-3 px-4 rounded-lg text-sm font-medium text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
@@ -401,13 +409,17 @@ export const Navbar: React.FC = () => {
             </Link>
 
             <Link
-              href="/passport"
+              href={isOrganizer ? '/organizer' : '/passport'}
               className={`flex flex-col items-center gap-1 py-1 ${
-                pathname.startsWith('/passport') ? 'text-[var(--accent)]' : 'text-[var(--muted)]'
+                (isOrganizer ? pathname.startsWith('/organizer') : pathname.startsWith('/passport'))
+                  ? 'text-[var(--accent)]'
+                  : 'text-[var(--muted)]'
               }`}
             >
-              <User size={20} strokeWidth={1.5} />
-              <span className="text-[9px] font-mono uppercase tracking-wider">Passport</span>
+              {isOrganizer ? <LayoutDashboard size={20} strokeWidth={1.5} /> : <User size={20} strokeWidth={1.5} />}
+              <span className="text-[9px] font-mono uppercase tracking-wider">
+                {isOrganizer ? 'Dashboard' : 'Passport'}
+              </span>
             </Link>
 
             <button

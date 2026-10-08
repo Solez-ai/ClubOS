@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Native controls (date/time pickers, calendar icon, selects) must follow the
+   theme or the calendar icon is invisible in dark mode. */
+:root,
+:root[data-theme="dark"],
+.dark {
+  color-scheme: dark;
+}
+
+.light,
+[data-theme="light"] {
+  color-scheme: light;
+}
+
 :root[data-theme="dark"], .dark, :root {
   --bg: #0D0C0A;
   --bg-elevated: #151411;
